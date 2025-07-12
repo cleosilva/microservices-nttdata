@@ -14,7 +14,7 @@ pipeline {
     stages {
         stage('Checkout Source Code') {
             steps {
-                git branch: 'main', url: 'https://https://github.com/cleosilva/microservices-nttdata.git' // Adapte para seu repositório
+                git branch: 'main', url: 'https://github.com/cleosilva/microservices-nttdata.git'
             }
         }
 
