@@ -21,8 +21,11 @@ pipeline {
         stage('Build Eureka Server') {
             steps {
                 script {
-                    // Navega para o diretório do service-discovery e constrói o JAR
-                    sh "cd service-discovery && mvn clean package -DskipTests"
+                    // ADIÇÃO AQUI: Use 'withMaven' para fornecer o Maven
+                    // O nome deve ser EXATAMENTE o que você configurou no Jenkins -> Ferramentas -> Maven
+                    withMaven(maven: 'Maven 3.9.6') {
+                       sh "cd service-discovery && mvn clean package -DskipTests"
+                    }
                 }
             }
         }
@@ -48,10 +51,6 @@ pipeline {
                     sh "docker-compose rm -f eureka-server || true"
 
                     // Inicia o container do Eureka Server com a imagem mais recente
-                    // O --build garantirá que se houver alterações no Dockerfile local, ele reconstrua
-                    // Se você quer que ele puxe a imagem do Docker Hub, você precisaria mudar o docker-compose.yml
-                    // para usar 'image: ${DOCKER_USERNAME}/eureka-server' e fazer um 'docker pull' antes.
-                    // Por enquanto, 'docker-compose up --build -d eureka-server' é simples e eficaz.
                     sh "docker-compose up -d --build eureka-server"
                 }
             }
@@ -61,7 +60,6 @@ pipeline {
             steps {
                 script {
                     // Para o Eureka Server, testes unitários são suficientes por agora.
-                    // Testes de integração complexos envolveriam verificar se outros serviços conseguem se registrar, etc.
                     sh "cd service-discovery && mvn test"
                 }
             }
