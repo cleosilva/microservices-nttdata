@@ -8,7 +8,7 @@ pipeline {
     environment {
         // Defina o DOCKER_USERNAME com seu nome de usuário do Docker Hub
         DOCKER_USERNAME = 'cleosilva' // SUBSTITUA PELO SEU USUÁRIO DO DOCKER HUB
-        DOCKER_REGISTRY = 'docker.io' // Geralmente docker.io para Docker Hub
+        DOCKER_REGISTRY = 'https://docker.io' // Geralmente docker.io para Docker Hub
 
         // Imagem do Eureka Server
         DOCKER_IMAGE_EUREKA = "${DOCKER_USERNAME}/eureka-server:${env.BUILD_ID}"
