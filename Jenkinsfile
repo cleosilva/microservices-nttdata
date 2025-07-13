@@ -30,9 +30,12 @@ pipeline {
         stage('Docker Build and Push Eureka Server') {
             steps {
                 script{
-                    withDockerRegistry(credentialsId: 'dockerhub-credentials', url: "${DOCKER_REGISTRY}") {
-                        sh "docker build -t ${DOCKER_IMAGE_EUREKA} ./service-discovery"
-                        sh "docker push ${DOCKER_IMAGE_EUREKA}"
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )]) {
+                        sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
                     }
                 }
 
