@@ -29,10 +29,13 @@ pipeline {
 
         stage('Docker Build and Push Eureka Server') {
             steps {
-                withDockerRegistry(credentialsId: 'dockerhub-credentials', url: "${DOCKER_REGISTRY}") {
-                    def eurekaImage = docker.build("${DOCKER_IMAGE_EUREKA}", "./service-discovery")
-                    eurekaImage.push()
+                script{
+                    withDockerRegistry(credentialsId: 'dockerhub-credentials', url: "${DOCKER_REGISTRY}") {
+                        def eurekaImage = docker.build("${DOCKER_IMAGE_EUREKA}", "./service-discovery")
+                        eurekaImage.push()
+                    }
                 }
+
             }
         }
 
