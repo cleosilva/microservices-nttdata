@@ -29,36 +29,29 @@ pipeline {
 
         stage('Docker Build and Push Eureka Server') {
             steps {
-                script {
-                    // Certifique-se de que 'dockerhub-credentials' foi configurado no Jenkins
-                    withDockerRegistry(credentialsId: 'dockerhub-credentials', url: "${DOCKER_REGISTRY}") {
-                        // Constrói a imagem Docker a partir do Dockerfile em service-discovery/
-                        docker.build("${DOCKER_IMAGE_EUREKA}", "./service-discovery").push()
-                    }
+                withDockerRegistry(credentialsId: 'dockerhub-credentials', url: "${DOCKER_REGISTRY}") {
+                    docker.build("${DOCKER_IMAGE_EUREKA}", "./service-discovery").push()
                 }
             }
         }
 
         stage('Deploy Eureka Server') {
             steps {
-                script {
-                    // Primeiro, pare e remova o container atual do Eureka para garantir um deploy limpo
-                    // '|| true' para que o comando não falhe se o container não existir
-                    sh "docker-compose stop eureka-server || true"
-                    sh "docker-compose rm -f eureka-server || true"
+               // Primeiro, pare e remova o container atual do Eureka para garantir um deploy limpo
+               // '|| true' para que o comando não falhe se o container não existir
+               sh "docker-compose stop eureka-server || true"
+               sh "docker-compose rm -f eureka-server || true"
 
-                    // Inicia o container do Eureka Server com a imagem mais recente
-                    sh "docker-compose up -d --build eureka-server"
-                }
+               // Inicia o container do Eureka Server com a imagem mais recente
+               sh "docker-compose up -d --build eureka-server"
+
             }
         }
 
         stage('Run Tests (Eureka Server)') {
             steps {
-                script {
-                    // Para o Eureka Server, testes unitários são suficientes por agora.
-                    sh "cd service-discovery && mvn test"
-                }
+               // Para o Eureka Server, testes unitários são suficientes por agora.
+               sh "cd service-discovery && mvn test"
             }
         }
     }
