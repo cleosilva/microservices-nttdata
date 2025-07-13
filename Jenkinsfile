@@ -31,8 +31,8 @@ pipeline {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'dockerhub-credentials', url: "${DOCKER_REGISTRY}") {
-                        def eurekaImage = docker.build("${DOCKER_IMAGE_EUREKA}", "./service-discovery")
-                        eurekaImage.push()
+                        sh "docker build -t ${DOCKER_IMAGE_EUREKA} ./service-discovery"
+                        sh "docker push ${DOCKER_IMAGE_EUREKA}"
                     }
                 }
 
