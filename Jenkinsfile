@@ -1,6 +1,9 @@
 // Jenkinsfile
 pipeline {
     agent any
+    tools {
+       maven 'Maven 3.9.6'
+    }
 
     environment {
         // Defina o DOCKER_USERNAME com seu nome de usuário do Docker Hub
@@ -20,13 +23,7 @@ pipeline {
 
         stage('Build Eureka Server') {
             steps {
-                script {
-                    // ADIÇÃO AQUI: Use 'withMaven' para fornecer o Maven
-                    // O nome deve ser EXATAMENTE o que você configurou no Jenkins -> Ferramentas -> Maven
-                    withMaven(maven: 'Maven 3.9.6') {
-                       sh "cd service-discovery && mvn clean package -DskipTests"
-                    }
-                }
+                sh "cd service-discovery && mvn clean package -DskipTests"
             }
         }
 
