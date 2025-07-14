@@ -1,23 +1,5 @@
-# docker-compose.yml
-services:
-  jenkins:
-    build: ./jenkins
-    container_name: jenkins
-    privileged: true
-    user: root
-    ports:
-      - "8888:8080"
-      - "50000:50000"
-    volumes:
-      - jenkins_data:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      # Para reiniciar sem o wizard
-      # JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
-      TZ: America/Sao_Paulo
-    networks:
-      - microservices-network
 
+services:
   eureka-server:
     image: cleosilva/eureka-server:${env.BUILD_ID} # Ou use ${BUILD_NUMBER} se preferir
     container_name: eureka-server
