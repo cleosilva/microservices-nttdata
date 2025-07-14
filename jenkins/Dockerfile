@@ -15,8 +15,8 @@ RUN apt-get update && \
 # Baixar e instalar o JDK 21 (Eclipse Temurin) via tar.gz
 # Usando a URL direta confirmada, que inclui o nome da pasta de release correto.
 ARG TEMURIN_FILENAME="OpenJDK21U-jdk_x64_linux_hotspot_21.0.3_9.tar.gz"
-ARG TEMURIN_RELEASE_TAG="jdk-21.0.3%2B9" # <-- A TAG EXATA DO RELEASE NO GITHUB
-ARG JAVA_TAR_DIR_NAME="jdk-21.0.3+9" # <-- O NOME DA PASTA EXTRAÍDA DO .TAR.GZ
+ARG TEMURIN_RELEASE_TAG="jdk-21.0.3%2B9"
+ARG JAVA_TAR_DIR_NAME="jdk-21.0.3+9"
 
 RUN mkdir -p /opt/java && \
     wget -q -O /tmp/jdk.tar.gz "https://github.com/adoptium/temurin21-binaries/releases/download/${TEMURIN_RELEASE_TAG}/${TEMURIN_FILENAME}" && \
