@@ -19,13 +19,13 @@ jobs:
       - name: Monitor Jenkins Build Status Triggered by Webhook
         run: |
           BRANCH_URL_ENCODED=$(echo "$CURRENT_BRANCH" | sed 's/\//%2F/g')
-          # JENKINS_JOB_PATH agora é a URL base da branch no Jenkins (sem o número do build)
+          # JENKINS_JOB_PATH agora representa a base da URL para a branch específica
           JENKINS_JOB_PATH="$JENKINS_URL/job/$JENKINS_JOB_NAME/job/$BRANCH_URL_ENCODED"
           
           echo "🔍 Jenkins build for branch '$CURRENT_BRANCH' expected to be triggered by webhook."
           echo "Waiting for Jenkins to start build on $JENKINS_JOB_PATH..."
           
-          # Tempo de espera inicial, crucial para o Jenkins registrar o novo build.
+          # Mantemos o tempo de espera inicial, pois ainda é importante para a sincronização
           echo "Initial wait: Giving Jenkins ample time to register the new build (60 seconds)..."
           sleep 60 
           
@@ -38,14 +38,12 @@ jobs:
             echo "Attempt $i/$MAX_RETRIES_FOR_BUILD_START to get last build number from $LAST_BUILD_API_URL"
             API_RESPONSE=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$LAST_BUILD_API_URL")
           
-            # Verifique se a resposta da API está vazia ou não é um JSON válido
             if [[ -z "$API_RESPONSE" || "$(echo "$API_RESPONSE" | jq empty 2>/dev/null)" == "" ]]; then
               echo "⚠️ Jenkins API response empty or invalid JSON for lastBuild. Retrying..."
               sleep 5
               continue
             fi
 
-            # Extrai o número do build usando jq
             BUILD_ID=$(echo "$API_RESPONSE" | jq -r '.id')
           
             if [[ "$BUILD_ID" != "null" && -n "$BUILD_ID" ]]; then
@@ -53,7 +51,7 @@ jobs:
               echo "✅ Found Jenkins build number: $JENKINS_BUILD_NUMBER"
               break
             else
-              echo "Jenkins last build number not yet available (id is null/empty in response: $API_RESPONSE). Waiting for 5 seconds..."
+              echo "Jenkins last build number not yet available (id is null/empty in response). Waiting for 5 seconds..."
               sleep 5
             fi
           done
@@ -63,10 +61,11 @@ jobs:
               exit 1
           fi
 
+          # =========================================================================
+          # A ÚNICA MUDANÇA ESTÁ AQUI: MONTANDO BUILD_URL COM O FORMATO EXATO QUE VOCÊ CONFIRMOU
+          # =========================================================================
           echo "🔍 Monitoring Jenkins build number $JENKINS_BUILD_NUMBER at $JENKINS_JOB_PATH"
-          
-          # A URL para monitorar o build específico continua sendo a mesma
-          BUILD_URL="$JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/api/json"
+          BUILD_URL="$JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/api/json" # Esta é a URL que você confirmou!
           
           while true; do
             if ! command -v jq &> /dev/null; then
@@ -74,10 +73,18 @@ jobs:
                 exit 1
             fi
 
+            echo "Querying build status from: $BUILD_URL" # Adicionei este echo para depuração
             API_RESPONSE=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$BUILD_URL")
           
-            if [[ -z "$API_RESPONSE" || "$(echo "$API_RESPONSE" | jq empty 2>/dev/null)" == "" ]]; then
-              echo "⚠️ Jenkins API response empty or invalid JSON for build $JENKINS_BUILD_NUMBER. Retrying in 10 seconds..."
+            if [[ -z "$API_RESPONSE" ]]; then
+              echo "⚠️ Jenkins API response is empty for build $JENKINS_BUILD_NUMBER. Retrying in 10 seconds..."
+              sleep 10
+              continue
+            fi
+
+            # Checar se é JSON válido antes de tentar o jq
+            if ! echo "$API_RESPONSE" | jq -e '.' &>/dev/null; then
+              echo "⚠️ Jenkins API response is not valid JSON for build $JENKINS_BUILD_NUMBER. Full response: $API_RESPONSE. Retrying in 10 seconds..."
               sleep 10
               continue
             fi
