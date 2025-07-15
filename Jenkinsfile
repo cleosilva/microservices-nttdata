@@ -61,18 +61,25 @@ pipeline {
             }
         }
 
-        // ... (agora o estágio de Deploy Eureka Server pode referenciar essa imagem) ...
-
         stage('Deploy Eureka Server') {
-            steps {
-                script {
-                    def lowerCaseBuildId = env.BUILD_ID.toLowerCase()
-                    sh "BUILD_ID=${lowerCaseBuildId} docker-compose stop eureka-server || true"
-                    sh "BUILD_ID=${lowerCaseBuildId} docker-compose rm -f eureka-server || true"
-                    sh "BUILD_ID=${lowerCaseBuildId} docker-compose up -d eureka-server" // Removido --build para ser mais claro
+             steps {
+                  script {
+                       def lowerCaseBuildId = env.BUILD_ID.toLowerCase()
+
+                            def composeDir = '.'
+                            dir(composeDir) {
+                                echo "Cleaning up existing Docker Compose services for branch ${env.BRANCH_NAME}..."
+                                // Derruba todos os serviços, remove containers, redes e volumes anônimos.
+                                // O || true garante que o comando não falhe se não houver nada para remover (primeira execução)
+                                sh "BUILD_ID=${lowerCaseBuildId} docker-compose down --rmi all --volumes --remove-orphans || true"
+
+                                echo "Deploying Eureka Server with build ID ${lowerCaseBuildId}..."
+                                // Sobe o serviço, reconstruindo a imagem se houver mudanças no Dockerfile
+                                sh "BUILD_ID=${lowerCaseBuildId} docker-compose up -d --build eureka-server"
+                            }
+                        }
+                    }
                 }
-            }
-        }
 
         stage('Run Integration/Acceptance Tests') {
             steps {
