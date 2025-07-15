@@ -44,14 +44,12 @@ pipeline {
 
         stage('Deploy Eureka Server') {
             steps {
-               // Primeiro, pare e remova o container atual do Eureka para garantir um deploy limpo
-               // '|| true' para que o comando não falhe se o container não existir
-               sh "docker-compose stop eureka-server || true"
-               sh "docker-compose rm -f eureka-server || true"
-
-               // Inicia o container do Eureka Server com a imagem mais recente
-               sh "docker-compose up -d --build eureka-server"
-
+                script {
+                    // Garante que a variável BUILD_ID esteja disponível no ambiente do shell para o docker-compose
+                    sh "BUILD_ID=${env.BUILD_ID} docker-compose stop eureka-server || true"
+                    sh "BUILD_ID=${env.BUILD_ID} docker-compose rm -f eureka-server || true"
+                    sh "BUILD_ID=${env.BUILD_ID} docker-compose up -d --build eureka-server"
+                }
             }
         }
 
