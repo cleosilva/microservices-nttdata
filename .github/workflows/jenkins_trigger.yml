@@ -27,7 +27,7 @@ jobs:
           # Aumentamos o tempo de espera inicial aqui
           # Isso dá mais tempo para o Jenkins registrar o novo build #20 como o 'lastBuild'
           echo "Initial wait: Giving Jenkins more time to register the new build (30 seconds)..."
-          sleep 30 # Aumentado de 20 para 30 segundos
+          sleep 60 
           
           JENKINS_BUILD_NUMBER=""
           # Mantemos o número de retries alto, para cobrir casos onde o Jenkins ainda demore
