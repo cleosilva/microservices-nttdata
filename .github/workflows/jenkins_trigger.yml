@@ -11,10 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       jenkins_build_number: ${{ steps.trigger_step.outputs.build_number }}
-      # Remover jenkins_job_path como output direto para evitar warning de secret
-      # Em vez disso, reconstruímos no próximo job
-      jenkins_job_name_output: ${{ steps.trigger_step.outputs.job_name_output }} # Novo output para o nome do job base
-      jenkins_branch_output: ${{ steps.trigger_step.outputs.branch_output }} # Novo output para o nome da branch
+      jenkins_job_name_output: ${{ steps.trigger_step.outputs.job_name_output }}
+      jenkins_branch_output: ${{ steps.trigger_step.outputs.branch_output }}
 
     steps:
       - name: Securely Trigger Jenkins Build
@@ -23,8 +21,8 @@ jobs:
           JENKINS_URL: ${{ secrets.JENKINS_URL }}
           JENKINS_USER: ${{ secrets.JENKINS_USER }}
           JENKINS_API_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
-          JENKINS_JOB_NAME: ${{ secrets.JENKINS_JOB_NAME }} # Nome do Multibranch Pipeline (ex: microservices-nttdata-multi-branch)
-          CURRENT_BRANCH: ${{ github.ref_name }} # Adiciona a branch atual como variável
+          JENKINS_JOB_NAME: ${{ secrets.JENKINS_JOB_NAME }}
+          CURRENT_BRANCH: ${{ github.ref_name }}
         run: |
           BRANCH_URL_ENCODED=$(echo "$CURRENT_BRANCH" | sed 's/\//%2F/g')
           
@@ -33,11 +31,12 @@ jobs:
 
           echo "Attempting to trigger Jenkins job: $JOB_FULL_PATH"
           
-          CURL_RESPONSE_HEADERS=$(curl -s -w "%{http_code}" -o output.txt \
-          -i -X POST "$JOB_FULL_PATH/build" \
+          # Dispara o build
+          CURL_OUTPUT=$(curl -s -w "%{http_code}" -o output.txt \
+          -X POST "$JOB_FULL_PATH/build" \
           --user "$JENKINS_USER:$JENKINS_API_TOKEN")
 
-          HTTP_STATUS=$(echo "$CURL_RESPONSE_HEADERS" | tail -n 1) # Última linha é o código HTTP
+          HTTP_STATUS=$(echo "$CURL_OUTPUT" | tail -n 1) # Pega o código HTTP
           
           if [[ "$HTTP_STATUS" -ne 201 ]]; then
             echo "❌ Jenkins build trigger failed! HTTP Status: $HTTP_STATUS"
@@ -46,55 +45,49 @@ jobs:
           fi
           
           echo "✅ Jenkins build triggered successfully! HTTP Status: $HTTP_STATUS"
-          
-          # Extrai o URL do item da fila ou do build da Location header
-          QUEUE_ITEM_OR_BUILD_URL=$(echo "$CURL_RESPONSE_HEADERS" | grep -i Location | awk '{print $2}' | tr -d '\r')
-          echo "DEBUG: QUEUE_ITEM_OR_BUILD_URL from Location header: $QUEUE_ITEM_OR_BUILD_URL"
-          
-          JENKINS_BUILD_NUMBER="" # Inicializa vazio
+          echo "Output: $(cat output.txt)" # Imprimir output.txt para ver se tem algo relevante
 
-          # Verifica se o URL aponta para um item da fila
-          if [[ "$QUEUE_ITEM_OR_BUILD_URL" == *"/queue/item/"* ]]; then
-            echo "Jenkins build is in queue. Monitoring queue item: $QUEUE_ITEM_OR_BUILD_URL"
-            QUEUE_ITEM_ID=$(echo "$QUEUE_ITEM_OR_BUILD_URL" | sed 's|.*/queue/item/||;s|/||')
-          
-            # Espera até o item sair da fila e o build iniciar
-            MAX_QUEUE_WAIT=30 # segundos
-            for i in $(seq 1 $MAX_QUEUE_WAIT); do
-              QUEUE_STATUS=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$JENKINS_URL/queue/item/$QUEUE_ITEM_ID/api/json")
-              EXECUTOR_URL=$(echo "$QUEUE_STATUS" | jq -r '.executable.url')
-          
-              if [[ "$EXECUTOR_URL" != "null" ]]; then
-                # Extrai o número do build do URL do executável (ex: .../job/branch/123/)
-                JENKINS_BUILD_NUMBER=$(echo "$EXECUTOR_URL" | sed 's|.*/job/[^/]*/job/[^/]*/||;s|/.*||')
-                echo "Jenkins build started with number: $JENKINS_BUILD_NUMBER"
-                break
-              fi
-              echo "Waiting for queue item $QUEUE_ITEM_ID to start ($i/$MAX_QUEUE_WAIT)..."
-              sleep 2 # Reduzir o sleep para checar mais rápido na fila
-            done
+          # Como o Location header está vazio, vamos esperar um pouco e consultar o "lastBuild"
+          echo "Location header was empty. Waiting 15 seconds for Jenkins to process and then find the latest build..."
+          sleep 15 # Dê um tempo para o Jenkins realmente iniciar o build
 
-            if [[ -z "$JENKINS_BUILD_NUMBER" ]]; then # Se ainda estiver vazio após a espera
-                echo "❌ Error: Jenkins build did not start from queue within expected time."
-                exit 1
+          # URL para obter informações do último build da branch
+          LAST_BUILD_API_URL="$JOB_FULL_PATH/lastBuild/api/json"
+          
+          JENKINS_BUILD_NUMBER=""
+          MAX_RETRIES=10 # Tentar obter o build number por até 10*5 = 50 segundos
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i/$MAX_RETRIES to get last build number from $LAST_BUILD_API_URL"
+            API_RESPONSE=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$LAST_BUILD_API_URL")
+          
+            # Verifique se a resposta da API está vazia ou não é um JSON válido
+            if [[ -z "$API_RESPONSE" || "$(echo "$API_RESPONSE" | jq empty 2>/dev/null)" == "" ]]; then
+              echo "⚠️ Jenkins API response empty or invalid JSON. Retrying..."
+              sleep 5
+              continue
             fi
-          else
-            # Tenta extrair o número do build diretamente do URL (se não foi para a fila)
-            # Verifica se o URL tem o formato esperado /job/JOB_NAME/job/BRANCH_NAME/BUILD_NUMBER/
-            if [[ "$QUEUE_ITEM_OR_BUILD_URL" =~ /job/[^/]*/job/[^/]*/([0-9]+)/ ]]; then
-                JENKINS_BUILD_NUMBER="${BASH_REMATCH[1]}"
-                echo "Jenkins build number extracted directly: $JENKINS_BUILD_NUMBER"
+
+            # Tenta extrair o número do build. Se for "null" ou vazio, significa que ainda não começou ou erro
+            BUILD_ID=$(echo "$API_RESPONSE" | jq -r '.id')
+          
+            if [[ "$BUILD_ID" != "null" && -n "$BUILD_ID" ]]; then
+              JENKINS_BUILD_NUMBER="$BUILD_ID"
+              echo "✅ Found Jenkins build number: $JENKINS_BUILD_NUMBER"
+              break
             else
-                echo "❌ Error: Could not extract build number directly from URL: $QUEUE_ITEM_OR_BUILD_URL"
-                echo "This might indicate an unexpected Jenkins response or URL format."
-                exit 1
+              echo "Jenkins last build number not yet available. Waiting for 5 seconds..."
+              sleep 5
             fi
+          done
+
+          if [[ -z "$JENKINS_BUILD_NUMBER" ]]; then
+              echo "❌ Error: Could not determine Jenkins build number after multiple attempts."
+              exit 1
           fi
 
           echo "DEBUG: Final JENKINS_BUILD_NUMBER before export: $JENKINS_BUILD_NUMBER"
           echo "DEBUG: Final JOB_FULL_PATH (reconstruído) before export: $JENKINS_URL/job/$JENKINS_JOB_NAME/job/$CURRENT_BRANCH"
 
-          # Exporta o número do build e os componentes para reconstruir o JOB_FULL_PATH no próximo job
           echo "build_number=$JENKINS_BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "job_name_output=$JENKINS_JOB_NAME" >> "$GITHUB_OUTPUT"
           echo "branch_output=$CURRENT_BRANCH" >> "$GITHUB_OUTPUT"
@@ -110,7 +103,6 @@ jobs:
           JENKINS_USER: ${{ secrets.JENKINS_USER }}
           JENKINS_API_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
           JENKINS_BUILD_NUMBER: ${{ needs.trigger-jenkins.outputs.jenkins_build_number }}
-          # Reconstroi o JOB_FULL_PATH no job de monitoramento
           JENKINS_JOB_PATH_BASE: ${{ needs.trigger-jenkins.outputs.jenkins_job_name_output }}
           JENKINS_BRANCH_NAME: ${{ needs.trigger-jenkins.outputs.jenkins_branch_output }}
         run: |
@@ -118,8 +110,13 @@ jobs:
           JENKINS_JOB_PATH="$JENKINS_URL/job/$JENKINS_JOB_PATH_BASE/job/$BRANCH_URL_ENCODED"
           
           echo "🔍 Monitoring Jenkins build number $JENKINS_BUILD_NUMBER at $JENKINS_JOB_PATH"
-          sleep 10
           
+          # Verifica se as variáveis essenciais estão presentes
+          if [[ -z "$JENKINS_BUILD_NUMBER" || -z "$JENKINS_JOB_PATH" ]]; then
+            echo "❌ Error: Missing Jenkins build number or job path for monitoring. This indicates a problem in the trigger job."
+            exit 1
+          fi
+
           BUILD_URL="$JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/api/json"
           
           while true; do
@@ -130,9 +127,8 @@ jobs:
 
             API_RESPONSE=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$BUILD_URL")
           
-            # Verifique se a resposta da API está vazia ou não é um JSON válido
             if [[ -z "$API_RESPONSE" || "$(echo "$API_RESPONSE" | jq empty 2>/dev/null)" == "" ]]; then
-              echo "⚠️ Jenkins API response empty or invalid JSON. Retrying in 10 seconds..."
+              echo "⚠️ Jenkins API response empty or invalid JSON for build $JENKINS_BUILD_NUMBER. Retrying in 10 seconds..."
               sleep 10
               continue
             fi
