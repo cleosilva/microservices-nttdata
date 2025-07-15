@@ -45,10 +45,14 @@ pipeline {
         stage('Deploy Eureka Server') {
             steps {
                 script {
-                    // Garante que a variável BUILD_ID esteja disponível no ambiente do shell para o docker-compose
-                    sh "BUILD_ID=${env.BUILD_ID} docker-compose stop eureka-server || true"
-                    sh "BUILD_ID=${env.BUILD_ID} docker-compose rm -f eureka-server || true"
-                    sh "BUILD_ID=${env.BUILD_ID} docker-compose up -d --build eureka-server"
+                    // Converte BUILD_ID para minúsculas para a tag da imagem Docker
+                    def lowerCaseBuildId = env.BUILD_ID.toLowerCase()
+
+                    // Assegura que BUILD_ID (agora em minúsculas) esteja disponível para o docker-compose
+                    // Usamos a variável lowerCaseBuildId para a tag
+                    sh "BUILD_ID=${lowerCaseBuildId} docker-compose stop eureka-server || true"
+                    sh "BUILD_ID=${lowerCaseBuildId} docker-compose rm -f eureka-server || true"
+                    sh "BUILD_ID=${lowerCaseBuildId} docker-compose up -d --build eureka-server"
                 }
             }
         }
