@@ -29,30 +29,40 @@ pipeline {
 
         stage('Docker Build and Push Eureka Server') {
             steps {
-                script{
-                    withCredentials([usernamePassword(
-                        credentialsId: 'dockerhub-credentials',
-                        usernameVariable: 'DOCKER_USERNAME',
-                        passwordVariable: 'DOCKER_PASSWORD'
-                    )]) {
-                        sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
-                    }
-                }
+                script {
+                    // Garante que a variável BUILD_ID esteja em minúsculas para a tag
+                    def lowerCaseBuildId = env.BUILD_ID.toLowerCase()
 
+                    // Autenticação no Docker Hub (isso já está funcionando)
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                        sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin"
+                    }
+
+                    // Construir a imagem Docker
+                    // O Dockerfile para o eureka-server está dentro de service-discovery
+                    // Usamos a tag com o BUILD_ID em minúsculas
+                    sh "docker build -t cleosilva/eureka-server:${lowerCaseBuildId} ./service-discovery"
+
+                    // Fazer o push da imagem para o Docker Hub
+                    sh "docker push cleosilva/eureka-server:${lowerCaseBuildId}"
+                }
             }
         }
+
+        // ... (agora o estágio de Deploy Eureka Server pode referenciar essa imagem) ...
 
         stage('Deploy Eureka Server') {
             steps {
                 script {
-                    // Converte BUILD_ID para minúsculas para a tag da imagem Docker
-                    def lowerCaseBuildId = env.BUILD_ID.toLowerCase()
+                    def lowerCaseBuildId = env.BUILD_ID.toLowerCase() // Re-declarar ou passar da etapa anterior
 
-                    // Assegura que BUILD_ID (agora em minúsculas) esteja disponível para o docker-compose
-                    // Usamos a variável lowerCaseBuildId para a tag
+                    // Como a imagem já foi construída e "pushed" (enviada),
+                    // o docker-compose agora poderá encontrá-la.
+                    // Não precisamos do --build aqui, pois a imagem já existe no registro.
+                    // Mas vamos mantê-lo para garantir que, se por algum motivo não achasse no registro, ele tentasse localmente.
                     sh "BUILD_ID=${lowerCaseBuildId} docker-compose stop eureka-server || true"
                     sh "BUILD_ID=${lowerCaseBuildId} docker-compose rm -f eureka-server || true"
-                    sh "BUILD_ID=${lowerCaseBuildId} docker-compose up -d --build eureka-server"
+                    sh "BUILD_ID=${lowerCaseBuildId} docker-compose up -d eureka-server" // Removido --build para ser mais claro
                 }
             }
         }
