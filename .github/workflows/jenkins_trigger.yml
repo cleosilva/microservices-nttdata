@@ -16,32 +16,55 @@ jobs:
           JENKINS_URL: ${{ secrets.JENKINS_URL }}
           JENKINS_USER: ${{ secrets.JENKINS_USER }}
           JENKINS_API_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
-          JENKINS_JOB_NAME: ${{ secrets.JENKINS_JOB_NAME }}
+          JENKINS_JOB_NAME: ${{ secrets.JENKINS_JOB_NAME }} # Nome do Multibranch Pipeline (ex: microservices-nttdata-multi-branch)
+          CURRENT_BRANCH: ${{ github.ref_name }} # Adiciona a branch atual como variável
         run: |
+          # Formata o nome da branch para uso na URL (substitui '/' por '%2F' se necessário)
+          # Ex: feature/my-branch vira feature%2Fmy-branch
+          BRANCH_URL_ENCODED=$(echo "$CURRENT_BRANCH" | sed 's/\//%2F/g')
+
+          echo "Attempting to trigger Jenkins job: $JENKINS_JOB_NAME/$CURRENT_BRANCH"
+          
+          # A URL para disparar um build em um Multibranch Pipeline para uma branch específica
+          # NOTA: '?token=$JENKINS_SECRET_TOKEN' FOI REMOVIDO DAQUI
           RESPONSE=$(curl -s -w "%{http_code}" -o output.txt \
-          -X POST "$JENKINS_URL/job/$JENKINS_JOB_NAME/build?token=$JENKINS_SECRET_TOKEN" \
-          --user "$JENKINS_USER:$JENKINS_API_TOKEN")
+          -X POST "$JENKINS_URL/job/$JENKINS_JOB_NAME/job/$BRANCH_URL_ENCODED/build" \
+          --user "$JENKINS_USER:$JENKINS_API_TOKEN") # O token de API para autenticação
           
           if [[ $RESPONSE -ne 201 ]]; then
-            echo "❌ Jenkins build trigger failed!"
+            echo "❌ Jenkins build trigger failed! HTTP Status: $RESPONSE"
             cat output.txt
             exit 1
           fi
+          echo "✅ Jenkins build triggered successfully! HTTP Status: $RESPONSE"
+          echo "Output: $(cat output.txt)"
+
 
       - name: Monitor Jenkins Build Status
         env:
           JENKINS_URL: ${{ secrets.JENKINS_URL }}
           JENKINS_USER: ${{ secrets.JENKINS_USER }}
           JENKINS_API_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
-          JENKINS_JOB_NAME: ${{ secrets.JENKINS_JOB_NAME }}
+          JENKINS_JOB_NAME: ${{ secrets.JENKINS_JOB_NAME }} # Nome do Multibranch Pipeline
+          CURRENT_BRANCH: ${{ github.ref_name }} # Adiciona a branch atual como variável
         run: |
           echo "🔍 Waiting for Jenkins build to start..."
           sleep 10  # Wait before checking status
           
-          BUILD_URL="$JENKINS_URL/job/$JENKINS_JOB_NAME/lastBuild/api/json"
+          # Formata o nome da branch para uso na URL (substitui '/' por '%2F' se necessário)
+          BRANCH_URL_ENCODED=$(echo "$CURRENT_BRANCH" | sed 's/\//%2F/g')
+
+          # A URL da API para o último build de uma branch específica
+          BUILD_URL="$JENKINS_URL/job/$JENKINS_JOB_NAME/job/$BRANCH_URL_ENCODED/lastBuild/api/json"
           
           while true; do
-            STATUS=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" $BUILD_URL | jq -r '.result')
+            # Verifica se o jq está disponível (geralmente está em ubuntu-latest)
+            if ! command -v jq &> /dev/null; then
+                echo "jq could not be found, please ensure it is installed in the runner environment."
+                exit 1
+            fi
+
+            STATUS=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$BUILD_URL" | jq -r '.result')
           
             if [[ "$STATUS" == "SUCCESS" ]]; then
               echo "✅ Jenkins Build Successful!"
@@ -53,7 +76,7 @@ jobs:
               echo "⏳ Jenkins build still running..."
               sleep 10
             else
-              echo "⚠️ Unexpected status: $STATUS"
-              exit 1
+              echo "⚠️ Unexpected status: $STATUS. Checking again in 10 seconds..."
+              sleep 10
             fi
           done
