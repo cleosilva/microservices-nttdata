@@ -92,7 +92,6 @@ jobs:
           echo "job_name_output=$JENKINS_JOB_NAME" >> "$GITHUB_OUTPUT"
           echo "branch_output=$CURRENT_BRANCH" >> "$GITHUB_OUTPUT"
 
-
   monitor-jenkins:
     needs: trigger-jenkins
     runs-on: ubuntu-latest
