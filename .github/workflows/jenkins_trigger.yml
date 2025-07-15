@@ -9,13 +9,13 @@ on:
 jobs:
   trigger-jenkins:
     runs-on: ubuntu-latest
-    outputs: # Adicionamos esta seção para que o número do build seja um output do job
+    outputs:
       jenkins_build_number: ${{ steps.trigger_step.outputs.build_number }}
       jenkins_job_path: ${{ steps.trigger_step.outputs.job_path }}
 
     steps:
       - name: Securely Trigger Jenkins Build
-        id: trigger_step # Damos um ID a este passo para referenciá-lo depois
+        id: trigger_step
         env:
           JENKINS_URL: ${{ secrets.JENKINS_URL }}
           JENKINS_USER: ${{ secrets.JENKINS_USER }}
@@ -73,48 +73,50 @@ jobs:
   monitor-jenkins:
     needs: trigger-jenkins
     runs-on: ubuntu-latest
-    env:
-      JENKINS_URL: ${{ secrets.JENKINS_URL }}
-      JENKINS_USER: ${{ secrets.JENKINS_USER }}
-      JENKINS_API_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
-      JENKINS_BUILD_NUMBER: ${{ needs.trigger-jenkins.outputs.jenkins_build_number }}
-      JENKINS_JOB_PATH: ${{ needs.trigger-jenkins.outputs.jenkins_job_path }}
-    run: |
-      echo "🔍 Monitoring Jenkins build number $JENKINS_BUILD_NUMBER at $JENKINS_JOB_PATH"
-      sleep 10
-      
-      BUILD_URL="$JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/api/json"
-      
-      while true; do
-        if ! command -v jq &> /dev/null; then
-            echo "jq could not be found, please ensure it is installed in the runner environment."
-            exit 1
-        fi
-
-        API_RESPONSE=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$BUILD_URL")
-        STATUS=$(echo "$API_RESPONSE" | jq -r '.result')
-        BUILDING=$(echo "$API_RESPONSE" | jq -r '.building')
-
-        if [[ "$BUILDING" == "true" ]]; then
-          echo "⏳ Jenkins build still running..."
+    steps:
+      - name: Monitor Jenkins Build Status
+        env:
+          JENKINS_URL: ${{ secrets.JENKINS_URL }}
+          JENKINS_USER: ${{ secrets.JENKINS_USER }}
+          JENKINS_API_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
+          JENKINS_BUILD_NUMBER: ${{ needs.trigger-jenkins.outputs.jenkins_build_number }}
+          JENKINS_JOB_PATH: ${{ needs.trigger-jenkins.outputs.jenkins_job_path }}
+        run: |
+          echo "🔍 Monitoring Jenkins build number $JENKINS_BUILD_NUMBER at $JENKINS_JOB_PATH"
           sleep 10
-        elif [[ "$STATUS" == "SUCCESS" ]]; then
-          echo "✅ Jenkins Build Successful!"
-          exit 0
-        elif [[ "$STATUS" == "FAILURE" ]]; then
-          echo "❌ Jenkins Build Failed!"
-          echo "Jenkins Build Log: $JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/console"
-          exit 1
-        elif [[ "$STATUS" == "UNSTABLE" ]]; then
-          echo "⚠️ Jenkins Build Unstable!"
-          echo "Jenkins Build Log: $JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/console"
-          exit 1
-        elif [[ "$STATUS" == "ABORTED" ]]; then
-          echo "⛔ Jenkins Build Aborted!"
-          echo "Jenkins Build Log: $JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/console"
-          exit 1
-        else
-          echo "⚠️ Unexpected status or not yet finished: '$STATUS' (Building: $BUILDING). Checking again in 10 seconds..."
-          sleep 10
-        fi
-      done
+          
+          BUILD_URL="$JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/api/json"
+          
+          while true; do
+            if ! command -v jq &> /dev/null; then
+                echo "jq could not be found, please ensure it is installed in the runner environment."
+                exit 1
+            fi
+
+            API_RESPONSE=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$BUILD_URL")
+            STATUS=$(echo "$API_RESPONSE" | jq -r '.result')
+            BUILDING=$(echo "$API_RESPONSE" | jq -r '.building')
+
+            if [[ "$BUILDING" == "true" ]]; then
+              echo "⏳ Jenkins build still running..."
+              sleep 10
+            elif [[ "$STATUS" == "SUCCESS" ]]; then
+              echo "✅ Jenkins Build Successful!"
+              exit 0
+            elif [[ "$STATUS" == "FAILURE" ]]; then
+              echo "❌ Jenkins Build Failed!"
+              echo "Jenkins Build Log: $JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/console"
+              exit 1
+            elif [[ "$STATUS" == "UNSTABLE" ]]; then
+              echo "⚠️ Jenkins Build Unstable!"
+              echo "Jenkins Build Log: $JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/console"
+              exit 1
+            elif [[ "$STATUS" == "ABORTED" ]]; then
+              echo "⛔ Jenkins Build Aborted!"
+              echo "Jenkins Build Log: $JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/console"
+              exit 1
+            else
+              echo "⚠️ Unexpected status or not yet finished: '$STATUS' (Building: $BUILDING). Checking again in 10 seconds..."
+              sleep 10
+            fi
+          done
