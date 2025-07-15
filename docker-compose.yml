@@ -1,7 +1,7 @@
 
 services:
   eureka-server:
-    image: cleosilva/eureka-server:$${BUILD_ID} # Ou use ${BUILD_NUMBER} se preferir
+    image: cleosilva/eureka-server:${BUILD_ID} # Ou use ${BUILD_NUMBER} se preferir
     container_name: eureka-server
     ports:
       - "8761:8761"
