@@ -15,6 +15,12 @@ pipeline {
     }
 
     stages {
+        stage('Declarative: Checkout SCM') {
+                steps {
+                    checkout scm
+                }
+        }
+
         stage('Checkout Source Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/cleosilva/microservices-nttdata.git'
@@ -23,8 +29,14 @@ pipeline {
 
         stage('Build Eureka Server') {
             steps {
-                sh "cd service-discovery && mvn clean package -DskipTests"
+                sh "cd service-discovery && mvn clean package"
             }
+        }
+        // Test unitário antes do deploy seguindo o princípio do "Fail Fast"
+        stage('Run Unit Tests (Eureka Server)') {
+             steps {
+                  sh 'cd service-discovery && mvn test'
+             }
         }
 
         stage('Docker Build and Push Eureka Server') {
@@ -54,12 +66,7 @@ pipeline {
         stage('Deploy Eureka Server') {
             steps {
                 script {
-                    def lowerCaseBuildId = env.BUILD_ID.toLowerCase() // Re-declarar ou passar da etapa anterior
-
-                    // Como a imagem já foi construída e "pushed" (enviada),
-                    // o docker-compose agora poderá encontrá-la.
-                    // Não precisamos do --build aqui, pois a imagem já existe no registro.
-                    // Mas vamos mantê-lo para garantir que, se por algum motivo não achasse no registro, ele tentasse localmente.
+                    def lowerCaseBuildId = env.BUILD_ID.toLowerCase()
                     sh "BUILD_ID=${lowerCaseBuildId} docker-compose stop eureka-server || true"
                     sh "BUILD_ID=${lowerCaseBuildId} docker-compose rm -f eureka-server || true"
                     sh "BUILD_ID=${lowerCaseBuildId} docker-compose up -d eureka-server" // Removido --build para ser mais claro
@@ -67,10 +74,9 @@ pipeline {
             }
         }
 
-        stage('Run Tests (Eureka Server)') {
+        stage('Run Integration/Acceptance Tests') {
             steps {
-               // Para o Eureka Server, testes unitários são suficientes por agora.
-               sh "cd service-discovery && mvn test"
+               sh 'cd service-discovery && mvn verify'
             }
         }
     }

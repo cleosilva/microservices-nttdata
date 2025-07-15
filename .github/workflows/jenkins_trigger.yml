@@ -1,0 +1,143 @@
+name: GitHub Actions + Jenkins Monitoring
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  monitor-jenkins:
+    runs-on: ubuntu-latest
+    env:
+      JENKINS_URL: ${{ secrets.JENKINS_URL }}
+      JENKINS_USER: ${{ secrets.JENKINS_USER }}
+      JENKINS_API_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
+      JENKINS_JOB_NAME: ${{ secrets.JENKINS_JOB_NAME }}
+      CURRENT_BRANCH: ${{ github.ref_name }}
+    steps:
+      - name: Monitor Jenkins Build Status Triggered by Webhook
+        run: |
+          BRANCH_URL_ENCODED=$(echo "$CURRENT_BRANCH" | sed 's/\//%2F/g')
+          JENKINS_JOB_PATH="$JENKINS_URL/job/$JENKINS_JOB_NAME/job/$BRANCH_URL_ENCODED"
+          
+          echo "🔍 Jenkins build for branch '$CURRENT_BRANCH' expected to be triggered by webhook."
+          echo "Waiting for Jenkins to start build on $JENKINS_JOB_PATH..."
+          
+          echo "Initial wait: Giving Jenkins time to register the new build (45 seconds)..."
+          sleep 45 
+          
+          JENKINS_BUILD_NUMBER=""
+          LAST_BUILD_API_URL="$JENKINS_JOB_PATH/lastBuild/api/json"
+
+          MAX_RETRIES_FOR_BUILD_START=20 
+          RETRY_SLEEP_SECONDS=5 
+          
+          for i in $(seq 1 $MAX_RETRIES_FOR_BUILD_START); do
+            echo "Attempt $i/$MAX_RETRIES_FOR_BUILD_START to get last build number from $LAST_BUILD_API_URL"
+          
+            # =========================================================================
+            # MUDANÇA CRÍTICA AQUI: Usando um separador mágico para dividir corpo e status
+            # =========================================================================
+            CURL_OUTPUT=$(curl -s -w "\n%{http_code}" --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$LAST_BUILD_API_URL")
+
+            # Divide a saída em duas partes no último caractere de nova linha
+            API_BODY=$(echo "$CURL_OUTPUT" | head -n -1)
+            HTTP_STATUS=$(echo "$CURL_OUTPUT" | tail -n 1)
+            # =========================================================================
+          
+            if [[ "$HTTP_STATUS" -ne 200 ]]; then
+              echo "❌ Jenkins API returned HTTP Status $HTTP_STATUS. Expected 200. Retrying in $RETRY_SLEEP_SECONDS seconds..."
+              sleep $RETRY_SLEEP_SECONDS
+              continue
+            fi
+          
+            if [[ -z "$API_BODY" ]]; then
+              echo "⚠️ Jenkins API response for lastBuild is empty. Retrying in $RETRY_SLEEP_SECONDS seconds..."
+              sleep $RETRY_SLEEP_SECONDS
+              continue
+            fi
+
+            # Redireciona a saída de jq para /dev/null
+            if ! echo "$API_BODY" | jq -e '.' >/dev/null 2>&1; then
+              echo "⚠️ Jenkins API response for lastBuild is not valid JSON. Response starts with: '${API_BODY:0:100}'. Retrying in $RETRY_SLEEP_SECONDS seconds..."
+              sleep $RETRY_SLEEP_SECONDS
+              continue
+            fi
+
+            BUILD_ID=$(echo "$API_BODY" | jq -r '.id')
+          
+            if [[ "$BUILD_ID" != "null" && -n "$BUILD_ID" ]]; then
+              JENKINS_BUILD_NUMBER="$BUILD_ID"
+              echo "✅ Found Jenkins build number: $JENKINS_BUILD_NUMBER"
+              break
+            else
+              echo "Jenkins last build number not yet available (id is null/empty). Retrying in $RETRY_SLEEP_SECONDS seconds..."
+              sleep $RETRY_SLEEP_SECONDS
+            fi
+          done
+
+          if [[ -z "$JENKINS_BUILD_NUMBER" ]]; then
+              echo "❌ Error: Could not determine Jenkins build number within expected time."
+              exit 1
+          fi
+
+          echo "🔍 Monitoring Jenkins build number $JENKINS_BUILD_NUMBER at $JENKINS_JOB_PATH"
+          BUILD_URL="$JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/api/json"
+          
+          while true; do
+            if ! command -v jq &> /dev/null; then
+                echo "jq could not be found, please ensure it is installed in the runner environment."
+                exit 1
+            fi
+
+            echo "Querying build status from: $BUILD_URL"
+            # Novamente, usando o separador para a requisição de monitoramento
+            CURL_OUTPUT_MONITOR=$(curl -s -w "\n%{http_code}" --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$BUILD_URL")
+            API_RESPONSE=$(echo "$CURL_OUTPUT_MONITOR" | head -n -1)
+            HTTP_STATUS_MONITOR=$(echo "$CURL_OUTPUT_MONITOR" | tail -n 1)
+
+            if [[ "$HTTP_STATUS_MONITOR" -ne 200 ]]; then
+              echo "⚠️ Jenkins API returned HTTP Status $HTTP_STATUS_MONITOR for build $JENKINS_BUILD_NUMBER. Expected 200. Retrying in 10 seconds..."
+              sleep 10
+              continue
+            fi
+          
+            if [[ -z "$API_RESPONSE" ]]; then
+              echo "⚠️ Jenkins API response is empty for build $JENKINS_BUILD_NUMBER. Retrying in 10 seconds..."
+              sleep 10
+              continue
+            fi
+
+            if ! echo "$API_RESPONSE" | jq -e '.' >/dev/null 2>&1; then
+              echo "⚠️ Jenkins API response is not valid JSON for build $JENKINS_BUILD_NUMBER. Full response: ${API_RESPONSE:0:100}. Retrying in 10 seconds..."
+              sleep 10
+              continue
+            fi
+
+            STATUS=$(echo "$API_RESPONSE" | jq -r '.result')
+            BUILDING=$(echo "$API_RESPONSE" | jq -r '.building')
+
+            if [[ "$BUILDING" == "true" ]]; then
+              echo "⏳ Jenkins build still running..."
+              sleep 10
+            elif [[ "$STATUS" == "SUCCESS" ]]; then
+              echo "✅ Jenkins Build Successful!"
+              exit 0
+            elif [[ "$STATUS" == "FAILURE" ]]; then
+              echo "❌ Jenkins Build Failed!"
+              echo "Jenkins Build Log: $JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/console"
+              exit 1
+            elif [[ "$STATUS" == "UNSTABLE" ]]; then
+              echo "⚠️ Jenkins Build Unstable!"
+              echo "Jenkins Build Log: $JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/console"
+              exit 1
+            elif [[ "$STATUS" == "ABORTED" ]]; then
+              echo "⛔ Jenkins Build Aborted!"
+              echo "Jenkins Build Log: $JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/console"
+              exit 1
+            else
+              echo "⚠️ Unexpected status or not yet finished: '$STATUS' (Building: $BUILDING). Checking again in 10 seconds..."
+              sleep 10
+            fi
+          done
