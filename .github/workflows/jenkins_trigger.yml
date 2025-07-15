@@ -26,7 +26,7 @@ jobs:
           
           # Mantemos o tempo de espera inicial, pois ainda é importante para a sincronização
           echo "Initial wait: Giving Jenkins ample time to register the new build (60 seconds)..."
-          sleep 60 
+          sleep 360 
           
           JENKINS_BUILD_NUMBER=""
           LAST_BUILD_API_URL="$JENKINS_JOB_PATH/lastBuild/api/json"
