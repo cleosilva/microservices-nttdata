@@ -12,7 +12,7 @@ pipeline {
 
         // Imagem do Eureka Server
         DOCKER_IMAGE_EUREKA = "${DOCKER_USERNAME}/eureka-server:${env.BUILD_ID}"
-        COMPOSE_PROJECT_NAME = "${env.JOB_NAME}-${env.BRANCH_NAME.replace('/', '-')}"
+        COMPOSE_PROJECT_NAME = "${env.JOB_NAME.replace('/', '-')}-${env.BRANCH_NAME.replace('/', '-')}".toLowerCase()
     }
 
     stages {
