@@ -1,4 +1,3 @@
-[![Build Status](http://localhost:8888/buildStatus/icon?job=microservices-nttdata-multi-branch%2Fdevelop)](http://localhost:8888/job/microservices-nttdata-multi-branch/job/develop/)
 # Projeto Microservices NTT DATA
 Este é um projeto de exemplo para demonstrar a arquitetura de microsserviços usando Spring Boot e Spring Cloud, com ênfase em Automação de CI/CD (Integração Contínua e Entrega Contínua) utilizando Jenkins e Docker.
 
