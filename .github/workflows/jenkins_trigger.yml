@@ -19,48 +19,53 @@ jobs:
       - name: Monitor Jenkins Build Status Triggered by Webhook
         run: |
           BRANCH_URL_ENCODED=$(echo "$CURRENT_BRANCH" | sed 's/\//%2F/g')
+          # JENKINS_JOB_PATH agora é a URL base da branch no Jenkins (sem o número do build)
           JENKINS_JOB_PATH="$JENKINS_URL/job/$JENKINS_JOB_NAME/job/$BRANCH_URL_ENCODED"
           
           echo "🔍 Jenkins build for branch '$CURRENT_BRANCH' expected to be triggered by webhook."
           echo "Waiting for Jenkins to start build on $JENKINS_JOB_PATH..."
           
-          # Aumentamos o tempo de espera inicial para garantir que o build mais recente seja registrado
+          # Tempo de espera inicial, crucial para o Jenkins registrar o novo build.
           echo "Initial wait: Giving Jenkins ample time to register the new build (60 seconds)..."
-          sleep 60 # Aumentado para 60 segundos
+          sleep 60 
           
           JENKINS_BUILD_NUMBER=""
-          MAX_RETRIES_FOR_BUILD_START=20 # Mantemos este alto (20 * 5s = 100 segundos de tentativas adicionais)
-          
-          LAST_BUILD_NUMBER_XPATH_URL="$JENKINS_JOB_PATH/api/xml?xpath=/*/lastBuild/number&wrapper=build"
+          # URL para obter o ID do último build via API JSON da branch
+          LAST_BUILD_API_URL="$JENKINS_JOB_PATH/lastBuild/api/json"
 
+          MAX_RETRIES_FOR_BUILD_START=20 # Tentativas (20 * 5s = 100 segundos de retries)
           for i in $(seq 1 $MAX_RETRIES_FOR_BUILD_START); do
-            echo "Attempt $i/$MAX_RETRIES_FOR_BUILD_START to get last build number from $LAST_BUILD_NUMBER_XPATH_URL"
+            echo "Attempt $i/$MAX_RETRIES_FOR_BUILD_START to get last build number from $LAST_BUILD_API_URL"
+            API_RESPONSE=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$LAST_BUILD_API_URL")
           
-            BUILD_NUMBER_XML_RESPONSE=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$LAST_BUILD_NUMBER_XPATH_URL")
-          
-            EXTRACTED_NUMBER=$(echo "$BUILD_NUMBER_XML_RESPONSE" | sed -n 's/.*<number>\(.*\)<\/number>.*/\1/p' | head -n 1)
-          
-            if [[ -z "$EXTRACTED_NUMBER" ]]; then
-              EXTRACTED_NUMBER=$(echo "$BUILD_NUMBER_XML_RESPONSE" | tr -d '[:space:]')
+            # Verifique se a resposta da API está vazia ou não é um JSON válido
+            if [[ -z "$API_RESPONSE" || "$(echo "$API_RESPONSE" | jq empty 2>/dev/null)" == "" ]]; then
+              echo "⚠️ Jenkins API response empty or invalid JSON for lastBuild. Retrying..."
+              sleep 5
+              continue
             fi
 
-            if [[ -n "$EXTRACTED_NUMBER" && "$EXTRACTED_NUMBER" != "null" ]]; then
-              JENKINS_BUILD_NUMBER="$EXTRACTED_NUMBER"
+            # Extrai o número do build usando jq
+            BUILD_ID=$(echo "$API_RESPONSE" | jq -r '.id')
+          
+            if [[ "$BUILD_ID" != "null" && -n "$BUILD_ID" ]]; then
+              JENKINS_BUILD_NUMBER="$BUILD_ID"
               echo "✅ Found Jenkins build number: $JENKINS_BUILD_NUMBER"
               break
             else
-              echo "⚠️ Jenkins last build number not yet available from XPath API (response: '$BUILD_NUMBER_XML_RESPONSE'). Waiting for 5 seconds..."
+              echo "Jenkins last build number not yet available (id is null/empty in response: $API_RESPONSE). Waiting for 5 seconds..."
               sleep 5
             fi
           done
 
           if [[ -z "$JENKINS_BUILD_NUMBER" ]]; then
-              echo "❌ Error: Could not determine Jenkins build number within expected time using XPath."
+              echo "❌ Error: Could not determine Jenkins build number within expected time."
               exit 1
           fi
 
           echo "🔍 Monitoring Jenkins build number $JENKINS_BUILD_NUMBER at $JENKINS_JOB_PATH"
           
+          # A URL para monitorar o build específico continua sendo a mesma
           BUILD_URL="$JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/api/json"
           
           while true; do
