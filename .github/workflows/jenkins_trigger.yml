@@ -24,59 +24,51 @@ jobs:
           echo "🔍 Jenkins build for branch '$CURRENT_BRANCH' expected to be triggered by webhook."
           echo "Waiting for Jenkins to start build on $JENKINS_JOB_PATH..."
           
-          # Removemos o sleep longo aqui para ver o comportamento imediato do curl
-          # Se necessário, podemos reintroduzi-lo após diagnosticar o problema
-          echo "Skipping long initial wait for direct curl debugging."
+          # Tempo de espera inicial para garantir que o Jenkins registrou o novo build.
+          # 30-45 segundos é um bom equilíbrio, dada a duração do seu build.
+          echo "Initial wait: Giving Jenkins time to register the new build (45 seconds)..."
+          sleep 45 
           
           JENKINS_BUILD_NUMBER=""
           LAST_BUILD_API_URL="$JENKINS_JOB_PATH/lastBuild/api/json"
 
-          MAX_RETRIES_FOR_BUILD_START=10 # Reduzimos para 10 retries para um feedback mais rápido
-          RETRY_SLEEP_SECONDS=5 # Mantemos 5 segundos entre retries
+          # Mantemos um bom número de retries para a fase de detecção do build ID
+          MAX_RETRIES_FOR_BUILD_START=20 
+          RETRY_SLEEP_SECONDS=5 
           
           for i in $(seq 1 $MAX_RETRIES_FOR_BUILD_START); do
             echo "Attempt $i/$MAX_RETRIES_FOR_BUILD_START to get last build number from $LAST_BUILD_API_URL"
           
-            # =========================================================================
-            # MUDANÇAS AQUI: Adicionando -v (verbose) e capturando o HTTP_STATUS
-            # =========================================================================
-            CURL_OUTPUT=$(curl -v -s -w "%{http_code}" -o curl_response.txt \
-            --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$LAST_BUILD_API_URL" 2>&1)
+            # Removendo -v e -o para um output mais limpo em produção
+            API_RESPONSE=$(curl -s -w "%{http_code}" --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$LAST_BUILD_API_URL")
 
-            HTTP_STATUS=$(echo "$CURL_OUTPUT" | tail -n 1)
-            API_RESPONSE=$(cat curl_response.txt)
-
-            echo "DEBUG: HTTP Status for LAST_BUILD_API_URL: $HTTP_STATUS"
-            echo "DEBUG: Raw API_RESPONSE content (first 500 chars): ${API_RESPONSE:0:500}"
-            echo "DEBUG: Curl verbose output:"
-            echo "$CURL_OUTPUT" | head -n -1 # Imprime tudo do curl -v exceto a última linha (que é o HTTP_STATUS)
-            # =========================================================================
-
+            HTTP_STATUS=$(echo "$API_RESPONSE" | tail -n 1)
+            API_BODY=$(echo "$API_RESPONSE" | sed '$d') # Remove a última linha (HTTP_STATUS) para pegar só o corpo
+          
             if [[ "$HTTP_STATUS" -ne 200 ]]; then
               echo "❌ Jenkins API returned HTTP Status $HTTP_STATUS. Expected 200. Retrying in $RETRY_SLEEP_SECONDS seconds..."
               sleep $RETRY_SLEEP_SECONDS
               continue
             fi
           
-            if [[ -z "$API_RESPONSE" ]]; then
+            if [[ -z "$API_BODY" ]]; then
               echo "⚠️ Jenkins API response for lastBuild is empty. Retrying in $RETRY_SLEEP_SECONDS seconds..."
               sleep $RETRY_SLEEP_SECONDS
               continue
             fi
 
-            # Tenta validar JSON e extrair o ID
-            if ! echo "$API_RESPONSE" | jq -e '.' &>/dev/null; then
+            if ! echo "$API_BODY" | jq -e '.' &>/dev/null; then
               echo "⚠️ Jenkins API response for lastBuild is not valid JSON. Retrying in $RETRY_SLEEP_SECONDS seconds..."
               sleep $RETRY_SLEEP_SECONDS
               continue
             fi
 
-            BUILD_ID=$(echo "$API_RESPONSE" | jq -r '.id')
+            BUILD_ID=$(echo "$API_BODY" | jq -r '.id')
           
             if [[ "$BUILD_ID" != "null" && -n "$BUILD_ID" ]]; then
               JENKINS_BUILD_NUMBER="$BUILD_ID"
               echo "✅ Found Jenkins build number: $JENKINS_BUILD_NUMBER"
-              break # Sai do loop de busca do ID
+              break
             else
               echo "Jenkins last build number not yet available (id is null/empty). Retrying in $RETRY_SLEEP_SECONDS seconds..."
               sleep $RETRY_SLEEP_SECONDS
@@ -89,7 +81,6 @@ jobs:
           fi
 
           echo "🔍 Monitoring Jenkins build number $JENKINS_BUILD_NUMBER at $JENKINS_JOB_PATH"
-          
           BUILD_URL="$JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/api/json"
           
           while true; do
