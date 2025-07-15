@@ -24,32 +24,53 @@ jobs:
           echo "🔍 Jenkins build for branch '$CURRENT_BRANCH' expected to be triggered by webhook."
           echo "Waiting for Jenkins to start build on $JENKINS_JOB_PATH..."
           
-          # Mantemos o tempo de espera inicial, pois ainda é importante para a sincronização
-          echo "Initial wait: Giving Jenkins ample time to register the new build (60 seconds)..."
-          sleep 360 
+          # Removemos o sleep longo aqui para ver o comportamento imediato do curl
+          # Se necessário, podemos reintroduzi-lo após diagnosticar o problema
+          echo "Skipping long initial wait for direct curl debugging."
           
           JENKINS_BUILD_NUMBER=""
           LAST_BUILD_API_URL="$JENKINS_JOB_PATH/lastBuild/api/json"
 
-          # Aumentamos o total de retries e reduzimos o sleep dentro do loop para checar mais rápido
-          MAX_RETRIES_FOR_BUILD_START=60 # Agora tenta por 60 * 2s = 120 segundos (após o sleep inicial)
-          RETRY_SLEEP_SECONDS=2 # Reduzido para 2 segundos para checar mais rapidamente
+          MAX_RETRIES_FOR_BUILD_START=10 # Reduzimos para 10 retries para um feedback mais rápido
+          RETRY_SLEEP_SECONDS=5 # Mantemos 5 segundos entre retries
           
           for i in $(seq 1 $MAX_RETRIES_FOR_BUILD_START); do
             echo "Attempt $i/$MAX_RETRIES_FOR_BUILD_START to get last build number from $LAST_BUILD_API_URL"
-            API_RESPONSE=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$LAST_BUILD_API_URL")
           
-            # Debug: Mostra a resposta para ajudar a entender o que está vindo
-            # echo "DEBUG: Full API_RESPONSE for lastBuild: $API_RESPONSE" 
+            # =========================================================================
+            # MUDANÇAS AQUI: Adicionando -v (verbose) e capturando o HTTP_STATUS
+            # =========================================================================
+            CURL_OUTPUT=$(curl -v -s -w "%{http_code}" -o curl_response.txt \
+            --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$LAST_BUILD_API_URL" 2>&1)
 
-            # Primeiro, checa se a resposta não está vazia e é um JSON minimamente válido
-            if [[ -z "$API_RESPONSE" || "$(echo "$API_RESPONSE" | jq empty 2>/dev/null)" == "" ]]; then
-              echo "⚠️ Jenkins API response for lastBuild is empty or invalid JSON. Retrying in $RETRY_SLEEP_SECONDS seconds..."
+            HTTP_STATUS=$(echo "$CURL_OUTPUT" | tail -n 1)
+            API_RESPONSE=$(cat curl_response.txt)
+
+            echo "DEBUG: HTTP Status for LAST_BUILD_API_URL: $HTTP_STATUS"
+            echo "DEBUG: Raw API_RESPONSE content (first 500 chars): ${API_RESPONSE:0:500}"
+            echo "DEBUG: Curl verbose output:"
+            echo "$CURL_OUTPUT" | head -n -1 # Imprime tudo do curl -v exceto a última linha (que é o HTTP_STATUS)
+            # =========================================================================
+
+            if [[ "$HTTP_STATUS" -ne 200 ]]; then
+              echo "❌ Jenkins API returned HTTP Status $HTTP_STATUS. Expected 200. Retrying in $RETRY_SLEEP_SECONDS seconds..."
+              sleep $RETRY_SLEEP_SECONDS
+              continue
+            fi
+          
+            if [[ -z "$API_RESPONSE" ]]; then
+              echo "⚠️ Jenkins API response for lastBuild is empty. Retrying in $RETRY_SLEEP_SECONDS seconds..."
               sleep $RETRY_SLEEP_SECONDS
               continue
             fi
 
-            # Tenta extrair o ID. Se não for um ID válido (null, ou vazio), continua tentando
+            # Tenta validar JSON e extrair o ID
+            if ! echo "$API_RESPONSE" | jq -e '.' &>/dev/null; then
+              echo "⚠️ Jenkins API response for lastBuild is not valid JSON. Retrying in $RETRY_SLEEP_SECONDS seconds..."
+              sleep $RETRY_SLEEP_SECONDS
+              continue
+            fi
+
             BUILD_ID=$(echo "$API_RESPONSE" | jq -r '.id')
           
             if [[ "$BUILD_ID" != "null" && -n "$BUILD_ID" ]]; then
@@ -69,17 +90,15 @@ jobs:
 
           echo "🔍 Monitoring Jenkins build number $JENKINS_BUILD_NUMBER at $JENKINS_JOB_PATH"
           
-          # A URL para monitorar o build específico continua sendo a mesma
           BUILD_URL="$JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/api/json"
           
           while true; do
-            # Este loop é para monitorar o STATUS (SUCCESS, FAILURE, etc.) do build já encontrado
             if ! command -v jq &> /dev/null; then
                 echo "jq could not be found, please ensure it is installed in the runner environment."
                 exit 1
             fi
 
-            echo "Querying build status from: $BUILD_URL" # Adicionei este echo para depuração
+            echo "Querying build status from: $BUILD_URL"
             API_RESPONSE=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$BUILD_URL")
           
             if [[ -z "$API_RESPONSE" ]]; then
