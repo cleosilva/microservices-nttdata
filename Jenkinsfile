@@ -15,6 +15,12 @@ pipeline {
     }
 
     stages {
+        stage('Declarative: Checkout SCM') {
+                steps {
+                    checkout scm
+                }
+        }
+
         stage('Checkout Source Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/cleosilva/microservices-nttdata.git'
@@ -23,8 +29,14 @@ pipeline {
 
         stage('Build Eureka Server') {
             steps {
-                sh "cd service-discovery && mvn clean package -DskipTests"
+                sh "cd service-discovery && mvn clean package"
             }
+        }
+        // Test unitário antes do deploy seguindo o princípio do "Fail Fast"
+        stage('Run Unit Tests (Eureka Server)') {
+             steps {
+                  sh 'cd service-discovery && mvn test'
+             }
         }
 
         stage('Docker Build and Push Eureka Server') {
@@ -71,6 +83,12 @@ pipeline {
             steps {
                // Para o Eureka Server, testes unitários são suficientes por agora.
                sh "cd service-discovery && mvn test"
+            }
+        }
+
+        stage('Run Integration/Acceptance Tests') {
+            steps {
+               sh 'cd service-discovery && mvn verify'
             }
         }
     }
