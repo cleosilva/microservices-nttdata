@@ -12,6 +12,7 @@ pipeline {
 
         // Imagem do Eureka Server
         DOCKER_IMAGE_EUREKA = "${DOCKER_USERNAME}/eureka-server:${env.BUILD_ID}"
+        COMPOSE_PROJECT_NAME = "${env.JOB_NAME}-${env.BRANCH_NAME.replace('/', '-')}"
     }
 
     stages {
@@ -64,22 +65,20 @@ pipeline {
         stage('Deploy Eureka Server') {
              steps {
                   script {
-                       def lowerCaseBuildId = env.BUILD_ID.toLowerCase()
+                      def lowerCaseBuildId = env.BUILD_ID.toLowerCase()
+                      def composeDir = '.'
+                      dir(composeDir) {
+                            echo "Cleaning up existing Docker Compose services for project ${env.COMPOSE_PROJECT_NAME}..."
+                            sh "docker-compose -p ${env.COMPOSE_PROJECT_NAME} down --rmi all --volumes --remove-orphans || true"
 
-                            def composeDir = '.'
-                            dir(composeDir) {
-                                echo "Cleaning up existing Docker Compose services for branch ${env.BRANCH_NAME}..."
-                                // Derruba todos os serviços, remove containers, redes e volumes anônimos.
-                                // O || true garante que o comando não falhe se não houver nada para remover (primeira execução)
-                                sh "BUILD_ID=${lowerCaseBuildId} docker-compose down --rmi all --volumes --remove-orphans || true"
-
-                                echo "Deploying Eureka Server with build ID ${lowerCaseBuildId}..."
-                                // Sobe o serviço, reconstruindo a imagem se houver mudanças no Dockerfile
-                                sh "BUILD_ID=${lowerCaseBuildId} docker-compose up -d --build eureka-server"
+                            echo "Deploying Eureka Server with build ID ${lowerCaseBuildId} for project ${env.COMPOSE_PROJECT_NAME}..."
+                            // Subimos os serviços com o mesmo nome de projeto
+                            sh "BUILD_ID=${lowerCaseBuildId} docker-compose -p ${env.COMPOSE_PROJECT_NAME} up -d --build eureka-server"
                             }
-                        }
-                    }
-                }
+                      }
+                  }
+             }
+
 
         stage('Run Integration/Acceptance Tests') {
             steps {
