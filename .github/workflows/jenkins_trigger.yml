@@ -36,12 +36,15 @@ jobs:
           for i in $(seq 1 $MAX_RETRIES_FOR_BUILD_START); do
             echo "Attempt $i/$MAX_RETRIES_FOR_BUILD_START to get last build number from $LAST_BUILD_API_URL"
           
-            # Captura a resposta completa (incluindo o status HTTP)
-            CURL_RESPONSE_WITH_STATUS=$(curl -s -w "%{http_code}" --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$LAST_BUILD_API_URL")
+            # =========================================================================
+            # MUDANÇA CRÍTICA AQUI: Usando um separador mágico para dividir corpo e status
+            # =========================================================================
+            CURL_OUTPUT=$(curl -s -w "\n%{http_code}" --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$LAST_BUILD_API_URL")
 
-            # Separa o corpo da resposta do status HTTP
-            HTTP_STATUS=$(echo "$CURL_RESPONSE_WITH_STATUS" | tail -n 1)
-            API_BODY=$(echo "$CURL_RESPONSE_WITH_STATUS" | sed '$d') # Remove a última linha (HTTP_STATUS)
+            # Divide a saída em duas partes no último caractere de nova linha
+            API_BODY=$(echo "$CURL_OUTPUT" | head -n -1)
+            HTTP_STATUS=$(echo "$CURL_OUTPUT" | tail -n 1)
+            # =========================================================================
           
             if [[ "$HTTP_STATUS" -ne 200 ]]; then
               echo "❌ Jenkins API returned HTTP Status $HTTP_STATUS. Expected 200. Retrying in $RETRY_SLEEP_SECONDS seconds..."
@@ -49,21 +52,20 @@ jobs:
               continue
             fi
           
-            # PRIMEIRA MUDANÇA IMPORTANTE: Valida se API_BODY não está vazia.
             if [[ -z "$API_BODY" ]]; then
               echo "⚠️ Jenkins API response for lastBuild is empty. Retrying in $RETRY_SLEEP_SECONDS seconds..."
               sleep $RETRY_SLEEP_SECONDS
               continue
             fi
 
-            # SEGUNDA MUDANÇA IMPORTANTE: Redireciona a saída de jq para /dev/null
+            # Redireciona a saída de jq para /dev/null
             if ! echo "$API_BODY" | jq -e '.' >/dev/null 2>&1; then
-              echo "⚠️ Jenkins API response for lastBuild is not valid JSON. Retrying in $RETRY_SLEEP_SECONDS seconds..."
+              echo "⚠️ Jenkins API response for lastBuild is not valid JSON. Response starts with: '${API_BODY:0:100}'. Retrying in $RETRY_SLEEP_SECONDS seconds..."
               sleep $RETRY_SLEEP_SECONDS
               continue
             fi
 
-            BUILD_ID=$(echo "$API_BODY" | jq -r '.id') # Use API_BODY aqui
+            BUILD_ID=$(echo "$API_BODY" | jq -r '.id')
           
             if [[ "$BUILD_ID" != "null" && -n "$BUILD_ID" ]]; then
               JENKINS_BUILD_NUMBER="$BUILD_ID"
@@ -90,7 +92,16 @@ jobs:
             fi
 
             echo "Querying build status from: $BUILD_URL"
-            API_RESPONSE=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$BUILD_URL")
+            # Novamente, usando o separador para a requisição de monitoramento
+            CURL_OUTPUT_MONITOR=$(curl -s -w "\n%{http_code}" --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$BUILD_URL")
+            API_RESPONSE=$(echo "$CURL_OUTPUT_MONITOR" | head -n -1)
+            HTTP_STATUS_MONITOR=$(echo "$CURL_OUTPUT_MONITOR" | tail -n 1)
+
+            if [[ "$HTTP_STATUS_MONITOR" -ne 200 ]]; then
+              echo "⚠️ Jenkins API returned HTTP Status $HTTP_STATUS_MONITOR for build $JENKINS_BUILD_NUMBER. Expected 200. Retrying in 10 seconds..."
+              sleep 10
+              continue
+            fi
           
             if [[ -z "$API_RESPONSE" ]]; then
               echo "⚠️ Jenkins API response is empty for build $JENKINS_BUILD_NUMBER. Retrying in 10 seconds..."
@@ -98,9 +109,8 @@ jobs:
               continue
             fi
 
-            # Redireciona a saída de jq para /dev/null aqui também
             if ! echo "$API_RESPONSE" | jq -e '.' >/dev/null 2>&1; then
-              echo "⚠️ Jenkins API response is not valid JSON for build $JENKINS_BUILD_NUMBER. Full response: $API_RESPONSE. Retrying in 10 seconds..."
+              echo "⚠️ Jenkins API response is not valid JSON for build $JENKINS_BUILD_NUMBER. Full response: ${API_RESPONSE:0:100}. Retrying in 10 seconds..."
               sleep 10
               continue
             fi
