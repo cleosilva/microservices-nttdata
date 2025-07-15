@@ -66,6 +66,8 @@ jobs:
             echo "Jenkins build number extracted: $JENKINS_BUILD_NUMBER"
           fi
 
+          echo "DEBUG: Final JENKINS_BUILD_NUMBER before export: $JENKINS_BUILD_NUMBER" # DEBUG
+          echo "DEBUG: Final JOB_FULL_PATH before export: $JOB_FULL_PATH" # DEBUG
           echo "build_number=$JENKINS_BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "job_path=$JOB_FULL_PATH" >> "$GITHUB_OUTPUT"
 
