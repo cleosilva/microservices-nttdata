@@ -79,13 +79,6 @@ pipeline {
             }
         }
 
-        stage('Run Tests (Eureka Server)') {
-            steps {
-               // Para o Eureka Server, testes unitários são suficientes por agora.
-               sh "cd service-discovery && mvn test"
-            }
-        }
-
         stage('Run Integration/Acceptance Tests') {
             steps {
                sh 'cd service-discovery && mvn verify'
