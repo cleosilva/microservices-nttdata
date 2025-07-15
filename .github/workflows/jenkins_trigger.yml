@@ -7,14 +7,14 @@ on:
       - develop
 
 jobs:
-  monitor-jenkins: # Renomeamos o job para deixar claro que é só de monitoramento
+  monitor-jenkins:
     runs-on: ubuntu-latest
     env:
       JENKINS_URL: ${{ secrets.JENKINS_URL }}
       JENKINS_USER: ${{ secrets.JENKINS_USER }}
       JENKINS_API_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
-      JENKINS_JOB_NAME: ${{ secrets.JENKINS_JOB_NAME }} # O nome do seu Multibranch Pipeline
-      CURRENT_BRANCH: ${{ github.ref_name }} # A branch que disparou o push
+      JENKINS_JOB_NAME: ${{ secrets.JENKINS_JOB_NAME }}
+      CURRENT_BRANCH: ${{ github.ref_name }}
     steps:
       - name: Monitor Jenkins Build Status Triggered by Webhook
         run: |
@@ -24,13 +24,19 @@ jobs:
           echo "🔍 Jenkins build for branch '$CURRENT_BRANCH' expected to be triggered by webhook."
           echo "Waiting for Jenkins to start build on $JENKINS_JOB_PATH..."
           
+          # Aumentamos o tempo de espera inicial aqui
+          # Isso dá mais tempo para o Jenkins registrar o novo build #20 como o 'lastBuild'
+          echo "Initial wait: Giving Jenkins more time to register the new build (30 seconds)..."
+          sleep 30 # Aumentado de 20 para 30 segundos
+          
           JENKINS_BUILD_NUMBER=""
-          MAX_RETRIES_FOR_BUILD_START=20 # Tentativas para encontrar o build number (100 segundos)
+          # Mantemos o número de retries alto, para cobrir casos onde o Jenkins ainda demore
+          MAX_RETRIES_FOR_BUILD_START=20 
           for i in $(seq 1 $MAX_RETRIES_FOR_BUILD_START); do
             echo "Attempt $i/$MAX_RETRIES_FOR_BUILD_START to get last build number from $JENKINS_JOB_PATH/lastBuild/api/json"
             API_RESPONSE=$(curl -s --user "$JENKINS_USER:$JENKINS_API_TOKEN" "$JENKINS_JOB_PATH/lastBuild/api/json")
           
-            # Adicionar mais logs de depuração para a resposta da API (se necessário, pode remover depois)
+            # Removendo logs de debug que já não são mais úteis para um log mais limpo
             # echo "DEBUG: API_RESPONSE length: ${#API_RESPONSE}"
             # echo "DEBUG: API_RESPONSE (first 200 chars): ${API_RESPONSE:0:200}"
 
@@ -49,6 +55,17 @@ jobs:
             BUILD_ID=$(echo "$API_RESPONSE" | jq -r '.id')
           
             if [[ "$BUILD_ID" != "null" && -n "$BUILD_ID" ]]; then
+              echo "DEBUG: Found build ID '$BUILD_ID' from lastBuild API." # Adicionei este DEBUG para vermos o ID encontrado
+              # Agora, vamos VALIDAR se o BUILD_ID encontrado é o mais recente ou o que esperamos
+              # Para fazer isso, é mais seguro pegar o URL da branch e buscar o ID atual.
+              # Uma forma de fazer isso é tentar acessar /api/json do JOB_FULL_PATH e ver o lastBuildId
+              # ou simplesmente comparar com o que deveria ser o próximo.
+              # Mas a abordagem mais simples é apenas garantir que seja o build mais recente:
+          
+              # Se você tiver a chance de saber o "próximo ID" (ex: se o Jenkins auto-incrementa consistentemente)
+              # Mas para a maioria dos casos, pegar o .id do lastBuild/api/json após um delay maior funciona.
+          
+              # Por enquanto, vamos confiar que um atraso maior resolve o cache/sincronização.
               JENKINS_BUILD_NUMBER="$BUILD_ID"
               echo "✅ Found Jenkins build number: $JENKINS_BUILD_NUMBER"
               break
@@ -63,7 +80,6 @@ jobs:
               exit 1
           fi
 
-          # Agora que temos o número do build, podemos monitorá-lo
           echo "🔍 Monitoring Jenkins build number $JENKINS_BUILD_NUMBER at $JENKINS_JOB_PATH"
           
           BUILD_URL="$JENKINS_JOB_PATH/$JENKINS_BUILD_NUMBER/api/json"
