@@ -32,7 +32,7 @@ pipeline {
         stage('Build Microservices') {
              steps {
                  echo "Building Product Catalog..."
-                 sh "cd catalogo-produtos && mvn clean package"
+                 sh "cd product-catalog && mvn clean package"
 
                  echo "Building Eureka Server..."
                  sh "cd service-discovery && mvn clean package"
@@ -42,7 +42,7 @@ pipeline {
         stage('Run Unit Tests') {
               steps {
                   echo "Running unit tests for Product Catalog..."
-                  sh 'cd catalogo-produtos && mvn test'
+                  sh 'cd product-catalog && mvn test'
 
                   echo "Running unit tests for Eureka Server..."
                   sh 'cd service-discovery && mvn test'
@@ -73,7 +73,7 @@ pipeline {
 
                     // Construir e Fazer Push do Catálogo de Produtos
                     echo "Building and pushing Product Catalog image..."
-                    sh "docker build -t ${DOCKER_IMAGE_CATALOG} ./catalogo-produtos"
+                    sh "docker build -t ${DOCKER_IMAGE_CATALOG} ./product-catalog"
                     sh "docker push ${DOCKER_IMAGE_CATALOG}"
                 }
             }
