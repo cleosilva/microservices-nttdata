@@ -97,8 +97,7 @@ pipeline {
                  }
              }
         }
-
-
+    }
 
     post {
         always {
@@ -111,4 +110,5 @@ pipeline {
             echo 'Pipeline failed. Check console output for details.'
         }
     }
+
 }
