@@ -25,7 +25,7 @@ jobs:
           echo "Waiting for Jenkins to start build on $JENKINS_JOB_PATH..."
           
           echo "Initial wait: Giving Jenkins time to register the new build (45 seconds)..."
-          sleep 45 
+          sleep 60 
           
           JENKINS_BUILD_NUMBER=""
           LAST_BUILD_API_URL="$JENKINS_JOB_PATH/lastBuild/api/json"

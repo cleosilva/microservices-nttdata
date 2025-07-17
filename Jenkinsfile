@@ -70,8 +70,11 @@ pipeline {
              steps {
                  script {
                      def lowerCaseBuildId = env.BUILD_ID.toLowerCase()
-                     def composeDir = '.' // <--- VERIFIQUE E AJUSTE ESTE CAMINHO SE SEU docker-compose.yml NÃO ESTIVER NA RAIZ DO REPO
+                     def composeDir = '.'
                      dir(composeDir) {
+                          echo "Stopping any existing Docker Compose services..."
+                          sh 'docker-compose -f docker-compose.yml down -v --remove-orphans'
+
                           echo "Cleaning up existing Docker Compose services for project ${env.COMPOSE_PROJECT_NAME}..."
                           // Removido '--rmi all' daqui. As imagens serão puxadas do Docker Hub ou construídas.
                           sh "docker-compose -p ${env.COMPOSE_PROJECT_NAME} down --volumes --remove-orphans || true"
