@@ -99,7 +99,7 @@ docker-compose ps
 Todos os serviços (`eureka-server`, `api-gateway`, `product-catalog`, `order-simulator`, `postgres`, `rabbitmq`) devem aparecer com o status `Up`.
 
 ### 4. Acessar e Testar os Endpoints
-   Agora, você pode interagir com a aplicação. O token fixo para autenticação é: `seu-token-secreto-aqui` (ou o que você configurou no filtro do API Gateway).
+   Agora, você pode interagir com a aplicação. O token fixo para autenticação é: `supersecrettoken123`.
 
 #### 1. **Acessar o Painel do Eureka Server:**
 
@@ -113,12 +113,12 @@ Todos os serviços (`eureka-server`, `api-gateway`, `product-catalog`, `order-si
 
 * Corpo: { "name": "Notebook Gamer", "description": "Notebook de alta performance", "price": 5000.00 }
 
-* Headers: Authorization: Bearer seu-token-secreto-aqui
+* Headers: `Authorization: Bearer supersecrettoken123`
 
 ````Bash
 curl -X POST \
 -H "Content-Type: application/json" \
--H "Authorization: Bearer seu-token-secreto-aqui" \
+-H "Authorization: Bearer supersecrettoken123" \
 -d '{ "name": "Notebook Gamer", "description": "Notebook de alta performance", "price": 5000.00 }' \
 http://localhost:8700/products
 ````
@@ -126,11 +126,11 @@ http://localhost:8700/products
 
 * Endpoint: `GET /products`
 
-* Headers: Authorization: Bearer seu-token-secreto-aqui
+* Headers: `Authorization: Bearer supersecrettoken123`
 
 ````Bash
 curl -X GET \
--H "Authorization: Bearer seu-token-secreto-aqui" \
+-H "Authorization: Bearer supersecrettoken123" \
 http://localhost:8700/products
 ````
 * Você deverá ver o produto cadastrado anteriormente.
@@ -141,12 +141,12 @@ http://localhost:8700/products
 
 * Corpo: `[1]` (assumindo que o produto com ID 1 foi cadastrado).
 
-* Headers: `Authorization: Bearer seu-token-secreto-aqui`
+* Headers: `Authorization: Bearer supersecrettoken123`
 
 ````Bash
 curl -X POST \
 -H "Content-Type: application/json" \
--H "Authorization: Bearer seu-token-secreto-aqui" \
+-H "Authorization: Bearer supersecrettoken123" \
 -d '[1]' \
 http://localhost:8700/orders/simulate
 ````
