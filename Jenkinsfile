@@ -79,7 +79,7 @@ pipeline {
                           echo "Deploying Eureka Server, Product Catalog, PostgreSQL, RabbitMQ (if configured) for project ${env.COMPOSE_PROJECT_NAME}..."
                           // Usamos --build aqui porque estamos construindo localmente AGORA.
                           // Quando você quiser puxar do Docker Hub (próxima etapa), mude para --pull always.
-                          sh "BUILD_ID=${lowerCaseBuildId} docker-compose -p ${env.COMPOSE_PROJECT_NAME} up -d --build eureka-server product-catalog postgres rabbitmq"
+                          sh "BUILD_ID=${lowerCaseBuildId} docker-compose -p ${env.COMPOSE_PROJECT_NAME} up -d --build eureka-server product-catalog postgres"
                      }
                  }
              }
