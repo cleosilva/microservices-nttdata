@@ -1,126 +1,169 @@
-# Projeto Microservices NTT DATA
-Este é um projeto de exemplo para demonstrar a arquitetura de microsserviços usando Spring Boot e Spring Cloud, com ênfase em Automação de CI/CD (Integração Contínua e Entrega Contínua) utilizando Jenkins e Docker.
+# 🚀 Microsserviços de Catálogo de Produtos e Simulador de Pedidos
+Este projeto demonstra uma arquitetura de microsserviços moderna, implementada com Spring Boot e Spring Cloud. Ele foca não apenas na funcionalidade, mas também em boas práticas de desenvolvimento, organização de código, e automação de CI/CD, elementos essenciais em ambientes de desenvolvimento ágil e escalável.
 
-### Estrutura do Projeto
-Este repositório contém um projeto Maven multi-módulo. Atualmente, inclui o seguinte serviço:
+## 💡 Visão Geral do Projeto
+A aplicação consiste em dois microsserviços principais que interagem através de um **Service Discovery** e uma **API Gateway**, simulando um sistema de gestão de pedidos com um catálogo de produtos.
 
-* service-discovery: Um serviço de descoberta (Eureka Server) que permite que outros microsserviços se registrem e se encontrem na rede.
+### Requisitos Obrigatórios do Desafio (Entregues)
+* **Arquitetura de Microsserviços:** Dois serviços independentes desenvolvidos em Spring Boot.
 
-````bash
-.
-├── .github/                       # Configurações do GitHub Actions
-│   └── workflows/
-│       └── jenkins_trigger.yml    # Workflow para disparar e monitorar o Jenkins
-├── service-discovery/             # Módulo do Eureka Server
-│   ├── src/main/java/             # Código-fonte Java
-│   ├── src/main/resources/        # Configurações da aplicação
-│   ├── src/test/java/             # Testes unitários e de integração
-│   └── pom.xml                    # POM específico do módulo
-├── docker-compose.yml             # Arquivo Docker Compose para orquestração de serviços
-├── Jenkinsfile                    # Definição do Pipeline CI/CD com Jenkins
-└── pom.xml                        # POM principal (pai) do projeto multi-módulo
-└── README.md                      # Este arquivo
-````
+* **Service Discovery:** Utilização do Spring Cloud Eureka para permitir que os serviços se localizem.
 
-### Tecnologias Utilizadas
-* Spring Boot 3.3.1: Framework para desenvolvimento de aplicações Java baseado em microsserviços.
+* **API Gateway:** Implementação com Spring Cloud Gateway como ponto de entrada único para todas as requisições.
 
-* Spring Cloud 2023.0.2: Ferramentas para construir sistemas distribuídos, incluindo serviço de descoberta (Eureka).
+* **APIs RESTful:** Adere às boas práticas de design de APIs REST.
 
-* Apache Maven: Ferramenta de automação de build e gerenciamento de dependências.
+* **Microsserviço de Catálogo de Produtos (`product-catalog`):**
 
-* Docker: Plataforma para desenvolver, empacotar e executar aplicações em containers.
+  * Funcionalidades CRUD (cadastrar, listar, consultar) para produtos (nome, descrição, preço).
 
-* Docker Compose: Ferramenta para definir e executar aplicações Docker multi-container.
+  * Endpoint acessível via `/products`.
 
-* Jenkins: Servidor de automação open source para CI/CD.
+  * Observação: O requisito original pedia H2 Database, mas foi substituído por **PostgreSQL** para demonstrar persistência em ambiente de produção (detalhes no "Extras").
 
-* GitHub Actions: Ferramenta de automação de fluxo de trabalho do GitHub para CI/CD.
+* **Microsserviço de Simulador de Pedidos (`order-simulator`):**
 
-* Ngrok: Utilitário para expor um servidor local à internet, facilitando a integração com serviços externos como o GitHub.
+  * Consome o Microsserviço de Catálogo de Produtos para buscar itens disponíveis.
 
-### CI/CD Pipeline (Integração Contínua e Entrega Contínua)
-Este projeto implementa um pipeline de CI/CD robusto automatizado para garantir a entrega rápida e confiável do software.
+  * Permite simular a criação de um pedido com base em uma lista de IDs de produtos.
 
-#### Fluxo do Pipeline:
+  * Não possui persistência de dados própria.
 
-1. Gatilho (Push para o GitHub):
+  * Endpoint acessível via `/orders`.
 
-* Um git push para as branches main ou develop no GitHub dispara um GitHub Actions (.github/workflows/jenkins_trigger.yml).
+* **Rotas Consistentes:** Todos os endpoints são acessíveis exclusivamente via API Gateway.
 
-2. Disparo do Jenkins (via GitHub Actions):
+  * `/products/**` roteado para `product-catalog`.
 
-* O GitHub Actions, por sua vez, dispara e monitora um Pipeline Multibranch no Jenkins que está rodando localmente e exposto via Ngrok.
+  * `/orders/**` roteado para `order-simulator`.
 
-* O GitHub Actions aguarda o resultado do build do Jenkins para determinar seu próprio status.
+* **Autenticação Simplificada:** Implementada no API Gateway usando Spring Security com um filtro de token fixo (`Authorization: Bearer seu-token-secreto-aqui`).
 
-3. Execução do Pipeline Jenkins (Jenkinsfile):
+## ✨ Extras Implementados
+Para demonstrar uma compreensão mais profunda de um ambiente de desenvolvimento e deploy moderno, o projeto inclui as seguintes funcionalidades adicionais:
 
-* Checkout do Código: Clona o código-fonte do repositório.
+* **Persistência com PostgreSQL (via Docker):** Em vez de H2 (banco de dados em memória), foi configurado um banco de dados PostgreSQL, orquestrado via Docker Compose, para simular um ambiente de produção real com persistência de dados.
 
-* Build do Eureka Server (Maven): Compila e empacota o módulo service-discovery (Eureka Server) usando Maven.
+* **Dockerização dos Microsserviços:** Cada microsserviço (Eureka Server, Catálogo de Produtos, Simulador de Pedidos, API Gateway) possui seu próprio `Dockerfile` para encapsulamento e portabilidade.
 
-* Testes Unitários: Executa os testes unitários do service-discovery para garantir a funcionalidade em nível de componente.
+* **Orquestração com Docker Compose:** Utilização de um docker-compose.yml abrangente para subir toda a arquitetura da aplicação (incluindo PostgreSQL, RabbitMQ e todos os microsserviços) com um único comando, facilitando a execução em qualquer ambiente.
 
-* Build e Push da Imagem Docker: Constrói uma imagem Docker para o Eureka Server e a envia para o Docker Hub (cleosilva/eureka-server:<BUILD_ID_MINUSCULAS>).
+* **CI/CD com Jenkins:**
 
-* Deploy do Eureka Server: Utiliza docker-compose para parar, remover e iniciar o container do Eureka Server no ambiente de destino.
+  * Pipeline Jenkins configurada para automatizar o processo de Build, Teste e Publicação (Push) das imagens Docker para o Docker Hub.
 
-* Testes de Integração: Executa testes de integração para validar a comunicação e o comportamento do Eureka Server em um ambiente mais próximo do real (assumindo que o serviço já está em execução após o deploy).
+  * Isso garante entregas contínuas e um fluxo de trabalho eficiente e testado.
 
-### Como Rodar o Projeto Localmente
-1. Pré-requisitos:
+* **Testes Unitários e de Integração:** Inclusão de testes para garantir a robustez e confiabilidade do código.
 
-* Java 21 ou superior
+## 🛠️ Próximos Passos (Evolução Futura)
+Este projeto é uma base sólida e continuará evoluindo com a implementação de:
 
-* Maven
+* **Mensageria com RabbitMQ:** Adicionar comunicação assíncrona entre os serviços (por exemplo, para eventos de estoque ou notificações de pedido).
 
-* Docker e Docker Compose
+* **Monitoramento com Grafana e Prometheus:** Integração de ferramentas de observabilidade para coletar métricas e visualizar o desempenho da aplicação em tempo real.
 
-* Uma conta no Docker Hub
+## 🚀 Como Executar e Testar a Aplicação Localmente
+Siga estes passos para levantar e interagir com toda a arquitetura de microsserviços em sua máquina.
 
-* Jenkins (localmente em um container Docker, por exemplo)
+### **Pré-requisitos**
+Certifique-se de que você tem os seguintes softwares instalados em sua máquina:
 
-* Ngrok (para expor o Jenkins localmente)
+* **Git:** Para clonar o repositório.
 
-2. Clonar o Repositório:
+* **Docker Desktop (ou Docker Engine & Docker Compose):** Para construir e orquestrar os containers da aplicação.
 
-````Bash
+### 1. Clonar o Repositório
+   Abra seu terminal e clone o projeto:
+
+```Bash
 git clone https://github.com/cleosilva/microservices-nttdata.git
 cd microservices-nttdata
-```` 
-3. Subir o Jenkins (se estiver rodando via Docker):
+```
+### 2. Iniciar a Aplicação com Docker Compose
+   Este comando puxará as imagens Docker dos microsserviços pré-construídas do Docker Hub (tag `latest`), configurará os serviços de banco de dados e mensageria, e iniciará toda a aplicação.
 
-* Certifique-se de que seu Jenkins está rodando e acessível.
+No diretório raiz do projeto (`microservices-nttdata`), execute:
 
-* Inicie o Ngrok para expor seu Jenkins (ex: ngrok http 8888).
-````bash
-ngrok http 8888
+````Bash
+docker-compose up -d
+````
+* Aguarde alguns minutos para que todos os serviços sejam iniciados e registrados no Eureka Server. Você pode acompanhar o progresso com `docker-compose logs -f`.
+
+### 3. Verificar o Status dos Serviços
+   Confirme que todos os containers estão em execução:
+
+````Bash
+docker-compose ps
+````
+Todos os serviços (`eureka-server`, `api-gateway`, `product-catalog`, `order-simulator`, `postgres`, `rabbitmq`) devem aparecer com o status `Up`.
+
+### 4. Acessar e Testar os Endpoints
+   Agora, você pode interagir com a aplicação. O token fixo para autenticação é: `seu-token-secreto-aqui` (ou o que você configurou no filtro do API Gateway).
+
+#### 1. **Acessar o Painel do Eureka Server:**
+
+* Abra seu navegador e vá para: http://localhost:8761/
+
+* Você verá o painel do Eureka com `PRODUCT-CATALOG`, `ORDER-SIMULATOR`, e `API-GATEWAY` listados como `UP`.
+
+#### 2. **Testar o Endpoint de Cadastro de Produto (via API Gateway):**
+
+* Endpoint: `POST /products`
+
+* Corpo: { "name": "Notebook Gamer", "description": "Notebook de alta performance", "price": 5000.00 }
+
+* Headers: Authorization: Bearer seu-token-secreto-aqui
+
+````Bash
+curl -X POST \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer seu-token-secreto-aqui" \
+-d '{ "name": "Notebook Gamer", "description": "Notebook de alta performance", "price": 5000.00 }' \
+http://localhost:8700/products
+````
+#### 3. Testar o Endpoint de Listagem de Produtos (via API Gateway):
+
+* Endpoint: `GET /products`
+
+* Headers: Authorization: Bearer seu-token-secreto-aqui
+
+````Bash
+curl -X GET \
+-H "Authorization: Bearer seu-token-secreto-aqui" \
+http://localhost:8700/products
+````
+* Você deverá ver o produto cadastrado anteriormente.
+
+#### 4. Testar a Simulação de Pedido (via API Gateway):
+
+* Endpoint: `POST /orders/simulate`
+
+* Corpo: `[1]` (assumindo que o produto com ID 1 foi cadastrado).
+
+* Headers: `Authorization: Bearer seu-token-secreto-aqui`
+
+````Bash
+curl -X POST \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer seu-token-secreto-aqui" \
+-d '[1]' \
+http://localhost:8700/orders/simulate
+````
+* Você receberá um JSON com o pedido simulado, incluindo o item do catálogo.
+
+### 5. Parar e Remover a Aplicação (Limpeza)
+   Para derrubar todos os containers e limpar o ambiente após o teste:
+
+No diretório raiz do projeto, execute:
+
+```Bash
+docker-compose down
 ````
 
-4. Configurar o Jenkinsfile:
+## 🙋 Contato
+### Desenvolvido por:
 
-* Verifique o Jenkinsfile na raiz do projeto para entender os estágios.
+Cleo Silva
 
-* Certifique-se de que as credenciais do Docker Hub e GitHub estão configuradas no Jenkins.
-
-5. Configurar o GitHub Actions:
-
-* No seu repositório GitHub, vá em Settings > Secrets and variables > Actions 
-* Adicione as secrets: 
-  * JENKINS_URL, JENKINS_USER, 
-  * JENKINS_API_TOKEN, 
-  * JENKINS_JOB_NAME
-
-* O arquivo .github/workflows/jenkins_trigger.yml já está configurado para disparar em push para main e develop.
-
-6. Executar o Pipeline:
-
-* Faça uma alteração e um git push para a branch develop (ou main).
-
-* Observe o GitHub Actions ser executado (na aba "Actions" do seu repositório).
-
-* Observe o pipeline do Jenkins ser disparado e executado (no seu dashboard Jenkins).
-
-### Contato
-Para dúvidas ou sugestões, por favor, abra uma issue neste repositório.
+https://www.linkedin.com/in/cleo-silva
