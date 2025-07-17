@@ -48,20 +48,27 @@ pipeline {
                 script {
                     def lowerCaseBuildId = env.BUILD_ID.toLowerCase()
 
-                    // Autenticação no Docker Hub (isso já está funcionando)
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                         sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin"
                     }
 
-                    // Construir e Fazer Push do Eureka Server
+                    // --- Eureka Server ---
                     echo "Building and pushing Eureka Server image..."
-                    sh "docker build -t ${DOCKER_IMAGE_EUREKA} ./service-discovery"
-                    sh "docker push ${DOCKER_IMAGE_EUREKA}"
+                    def eurekaImageWithBuildId = "${DOCKER_USERNAME}/eureka-server:${lowerCaseBuildId}"
+                    def eurekaImageLatest = "${DOCKER_USERNAME}/eureka-server:latest"
+                    sh "docker build -t ${eurekaImageWithBuildId} ./service-discovery"
+                    sh "docker push ${eurekaImageWithBuildId}"
+                    sh "docker tag ${eurekaImageWithBuildId} ${eurekaImageLatest}" // Tagueia com 'latest'
+                    sh "docker push ${eurekaImageLatest}" // Faz push da 'latest'
 
-                    // Construir e Fazer Push do Catálogo de Produtos
+                    // --- Catálogo de Produtos ---
                     echo "Building and pushing Product Catalog image..."
-                    sh "docker build -t ${DOCKER_IMAGE_CATALOG} ./product-catalog"
-                    sh "docker push ${DOCKER_IMAGE_CATALOG}"
+                    def catalogImageWithBuildId = "${DOCKER_USERNAME}/product-catalog:${lowerCaseBuildId}" // Ajustado para 'product-catalog'
+                    def catalogImageLatest = "${DOCKER_USERNAME}/product-catalog:latest"
+                    sh "docker build -t ${catalogImageWithBuildId} ./product-catalog"
+                    sh "docker push ${catalogImageWithBuildId}"
+                    sh "docker tag ${catalogImageWithBuildId} ${catalogImageLatest}" // Tagueia com 'latest'
+                    sh "docker push ${catalogImageLatest}" // Faz push da 'latest'
                 }
             }
         }
