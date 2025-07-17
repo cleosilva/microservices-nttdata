@@ -15,7 +15,7 @@ services:
 
   eureka-server:
     # Use 'image' aqui porque o Jenkins vai puxar a imagem que ele mesmo construiu e publicou
-    image: cleosilva/eureka-server:${BUILD_ID}
+    image: cleosilva/eureka-server:latest
     build: ./service-discovery
     ports:
       - "8761:8761"
@@ -26,7 +26,7 @@ services:
 
   product-catalog:
     # Use 'image' aqui, Jenkins vai puxar a imagem que ele construiu e publicou
-    image: cleosilva/product-catalog:${BUILD_ID}
+    image: cleosilva/product-catalog:latest
     ports:
       - "8100:8100"
     environment:
