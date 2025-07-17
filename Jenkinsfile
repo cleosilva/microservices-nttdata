@@ -23,12 +23,6 @@ pipeline {
                 }
         }
 
-        stage('Checkout Source Code') {
-            steps {
-                git branch: 'main', url: 'https://github.com/cleosilva/microservices-nttdata.git'
-            }
-        }
-
         stage('Build Microservices') {
              steps {
                  echo "Building Product Catalog..."
@@ -48,13 +42,6 @@ pipeline {
                   sh 'cd service-discovery && mvn test'
               }
         }
-
-        stage('Build Eureka Server') {
-            steps {
-                sh "cd service-discovery && mvn clean package"
-            }
-        }
-
 
         stage('Docker Build and Push') {
             steps {
