@@ -17,6 +17,7 @@
 
     <modules>
         <module>service-discovery</module>
+        <module>product-catalog</module>
     </modules>
 
     <properties>

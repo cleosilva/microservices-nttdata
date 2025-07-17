@@ -1,11 +1,44 @@
-
 services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: catalogo_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      TZ: America/Sao_Paulo
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
   eureka-server:
-    image: cleosilva/eureka-server:${BUILD_ID} # Ou use ${BUILD_NUMBER} se preferir
+    # Use 'image' aqui porque o Jenkins vai puxar a imagem que ele mesmo construiu e publicou
+    image: cleosilva/eureka-server:${BUILD_ID}
+    build: ./service-discovery
     ports:
       - "8761:8761"
+    networks:
+      - microservices-network
     environment:
-      - TZ=America/Sao_Paulo
+      TZ: America/Sao_Paulo
+
+  product-catalog:
+    # Use 'image' aqui, Jenkins vai puxar a imagem que ele construiu e publicou
+    image: cleosilva/product-catalog:${BUILD_ID}
+    ports:
+      - "8100:8100"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/catalogo_db
+      SPRING_DATASOURCE_USERNAME: user
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_APPLICATION_NAME: products-catalog
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      TZ: America/Sao_Paulo
+    depends_on:
+      - eureka-server
+      - postgres
     networks:
       - microservices-network
 
@@ -14,4 +47,4 @@ networks:
     driver: bridge
 
 volumes:
-  jenkins_data:
+  pgdata:
