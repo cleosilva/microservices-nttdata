@@ -74,6 +74,9 @@ pipeline {
         }
 
         stage('Deploy Services with Docker Compose') {
+             when {
+                 branch 'develop'
+             }
              steps {
                  script {
                      def lowerCaseBuildId = env.BUILD_ID.toLowerCase()
@@ -83,12 +86,9 @@ pipeline {
                           sh 'docker-compose -f docker-compose.yml down -v --remove-orphans'
 
                           echo "Cleaning up existing Docker Compose services for project ${env.COMPOSE_PROJECT_NAME}..."
-                          // Removido '--rmi all' daqui. As imagens serão puxadas do Docker Hub ou construídas.
                           sh "docker-compose -p ${env.COMPOSE_PROJECT_NAME} down --volumes --remove-orphans || true"
 
                           echo "Deploying Eureka Server, Product Catalog, PostgreSQL, RabbitMQ (if configured) for project ${env.COMPOSE_PROJECT_NAME}..."
-                          // Usamos --build aqui porque estamos construindo localmente AGORA.
-                          // Quando você quiser puxar do Docker Hub (próxima etapa), mude para --pull always.
                           sh "BUILD_ID=${lowerCaseBuildId} docker-compose -p ${env.COMPOSE_PROJECT_NAME} up -d --build eureka-server product-catalog postgres"
                      }
                  }
@@ -98,7 +98,8 @@ pipeline {
 
     post {
         always {
-            echo 'Pipeline finished.'
+            echo "Cleaning up Docker containers..."
+            sh "docker-compose -p ${env.COMPOSE_PROJECT_NAME} down --volumes --remove-orphans || true"
         }
         success {
             echo 'Pipeline executed successfully!'
