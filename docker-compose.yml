@@ -14,7 +14,6 @@ services:
       - microservices-network
 
   eureka-server:
-    # Use 'image' aqui porque o Jenkins vai puxar a imagem que ele mesmo construiu e publicou
     image: cleosilva/eureka-server:latest
     build: ./service-discovery
     ports:
@@ -25,7 +24,6 @@ services:
       TZ: America/Sao_Paulo
 
   product-catalog:
-    # Use 'image' aqui, Jenkins vai puxar a imagem que ele construiu e publicou
     image: cleosilva/product-catalog:latest
     ports:
       - "8100:8100"
@@ -39,6 +37,21 @@ services:
     depends_on:
       - eureka-server
       - postgres
+    networks:
+      - microservices-network
+
+  order-simulator:
+    image: cleosilva/order-simulator:latest
+    build: ./order-simulator
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_APPLICATION_NAME: order-simulator
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      TZ: America/Sao_Paulo
+    depends_on:
+      - eureka-server
+      - product-catalog
     networks:
       - microservices-network
 

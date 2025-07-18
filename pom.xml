@@ -18,6 +18,8 @@
     <modules>
         <module>service-discovery</module>
         <module>product-catalog</module>
+        <module>order-simulator</module>
+
     </modules>
 
     <properties>
