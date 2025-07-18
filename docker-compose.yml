@@ -44,7 +44,7 @@ services:
     image: cleosilva/order-simulator:latest
     build: ./order-simulator
     ports:
-      - "8080:8080"
+      - "8200:8200"
     environment:
       SPRING_APPLICATION_NAME: order-simulator
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
