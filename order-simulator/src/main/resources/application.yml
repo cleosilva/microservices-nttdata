@@ -1,0 +1,11 @@
+server:
+  port: 8200
+
+spring:
+  application:
+    name: order-simulator
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/

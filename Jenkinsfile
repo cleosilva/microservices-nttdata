@@ -12,6 +12,7 @@ pipeline {
         // Imagens dos serviços
         DOCKER_IMAGE_EUREKA = "${DOCKER_USERNAME}/eureka-server:${env.BUILD_ID}"
         DOCKER_IMAGE_CATALOG = "${DOCKER_USERNAME}/product-catalog:${env.BUILD_ID}"
+        DOCKER_IMAGE_ORDER_SIMULATOR = "${DOCKER_USERNAME}/order-simulator:${env.BUILD_ID}"
 
         COMPOSE_PROJECT_NAME = "${env.JOB_NAME.replace('/', '-')}-${env.BRANCH_NAME.replace('/', '-')}".toLowerCase()
     }
@@ -30,6 +31,9 @@ pipeline {
 
                  echo "Building Eureka Server..."
                  sh "cd service-discovery && mvn clean package"
+
+                 echo "Building Order Simulator..."
+                 sh "cd order-simulator && mvn clean package"
              }
         }
 
@@ -40,6 +44,9 @@ pipeline {
 
                   echo "Running unit tests for Eureka Server..."
                   sh 'cd service-discovery && mvn test'
+
+                  echo "Running unit tests for Order Simulator..."
+                  sh 'cd order-simulator && mvn test'
               }
         }
 
@@ -63,12 +70,21 @@ pipeline {
 
                     // --- Catálogo de Produtos ---
                     echo "Building and pushing Product Catalog image..."
-                    def catalogImageWithBuildId = "${DOCKER_USERNAME}/product-catalog:${lowerCaseBuildId}" // Ajustado para 'product-catalog'
+                    def catalogImageWithBuildId = "${DOCKER_USERNAME}/product-catalog:${lowerCaseBuildId}"
                     def catalogImageLatest = "${DOCKER_USERNAME}/product-catalog:latest"
                     sh "docker build -t ${catalogImageWithBuildId} ./product-catalog"
                     sh "docker push ${catalogImageWithBuildId}"
                     sh "docker tag ${catalogImageWithBuildId} ${catalogImageLatest}" // Tagueia com 'latest'
                     sh "docker push ${catalogImageLatest}" // Faz push da 'latest'
+
+                    // --- Order Simulator --- // <-- NOVO
+                    echo "Building and pushing Order Simulator image..."
+                    def orderSimulatorImageWithBuildId = "${DOCKER_USERNAME}/order-simulator:${lowerCaseBuildId}"
+                    def orderSimulatorImageLatest = "${DOCKER_USERNAME}/order-simulator:latest"
+                    sh "docker build -t ${orderSimulatorImageWithBuildId} ./order-simulator"
+                    sh "docker push ${orderSimulatorImageWithBuildId}"
+                    sh "docker tag ${orderSimulatorImageWithBuildId} ${orderSimulatorImageLatest}"
+                    sh "docker push ${orderSimulatorImageLatest}"
                 }
             }
         }
@@ -83,13 +99,10 @@ pipeline {
                      def composeDir = '.'
                      dir(composeDir) {
                           echo "Stopping any existing Docker Compose services..."
-                          sh 'docker-compose -f docker-compose.yml down -v --remove-orphans'
-
-                          echo "Cleaning up existing Docker Compose services for project ${env.COMPOSE_PROJECT_NAME}..."
                           sh "docker-compose -p ${env.COMPOSE_PROJECT_NAME} down --volumes --remove-orphans || true"
 
                           echo "Deploying Eureka Server, Product Catalog, PostgreSQL, RabbitMQ (if configured) for project ${env.COMPOSE_PROJECT_NAME}..."
-                          sh "BUILD_ID=${lowerCaseBuildId} docker-compose -p ${env.COMPOSE_PROJECT_NAME} up -d --build eureka-server product-catalog postgres"
+                          sh "BUILD_ID=${lowerCaseBuildId} docker-compose -p ${env.COMPOSE_PROJECT_NAME} up -d --build eureka-server product-catalog order-simulator postgres"
                      }
                  }
              }

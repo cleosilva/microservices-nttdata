@@ -15,7 +15,7 @@ A aplicação consiste em dois microsserviços principais que interagem através
 
 * **Microsserviço de Catálogo de Produtos (`product-catalog`):**
 
-  * Funcionalidades CRUD (cadastrar, listar, consultar) para produtos (nome, descrição, preço).
+  * Funcionalidades CRUD (cadastrar, listar, consultar, atualizar, deletar) para produtos (nome, descrição, preço).
 
   * Endpoint acessível via `/products`.
 
@@ -37,7 +37,7 @@ A aplicação consiste em dois microsserviços principais que interagem através
 
   * `/orders/**` roteado para `order-simulator`.
 
-* **Autenticação Simplificada:** Implementada no API Gateway usando Spring Security com um filtro de token fixo (`Authorization: Bearer seu-token-secreto-aqui`).
+* **Autenticação Simplificada:** Implementada no API Gateway usando Spring Security com um filtro de token fixo (`Authorization: Bearer supersecrettoken123`).
 
 ## ✨ Extras Implementados
 Para demonstrar uma compreensão mais profunda de um ambiente de desenvolvimento e deploy moderno, o projeto inclui as seguintes funcionalidades adicionais:
