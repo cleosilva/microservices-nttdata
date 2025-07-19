@@ -6,14 +6,7 @@ pipeline {
     }
 
     environment {
-        DOCKER_USERNAME = 'cleosilva'
         DOCKER_REGISTRY = 'https://docker.io'
-
-        // Imagens dos serviços
-        DOCKER_IMAGE_EUREKA = "${DOCKER_USERNAME}/eureka-server:${env.BUILD_ID}"
-        DOCKER_IMAGE_CATALOG = "${DOCKER_USERNAME}/product-catalog:${env.BUILD_ID}"
-        DOCKER_IMAGE_ORDER_SIMULATOR = "${DOCKER_USERNAME}/order-simulator:${env.BUILD_ID}"
-
         COMPOSE_PROJECT_NAME = "${env.JOB_NAME.replace('/', '-')}-${env.BRANCH_NAME.replace('/', '-')}".toLowerCase()
     }
 
@@ -59,32 +52,32 @@ pipeline {
                         sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin"
                     }
 
+                    def imageEureka= "${DOCKER_USERNAME}/eureka-server:${buildId}"
+                    def imageCatalog= "${DOCKER_USERNAME}/product-catalog:${buildId}"
+                    def imageOrderSim= "${DOCKER_USERNAME}/order-simulator:${buildId}"
+
+
                     // --- Eureka Server ---
                     echo "Building and pushing Eureka Server image..."
-                    def eurekaImageWithBuildId = "${DOCKER_USERNAME}/eureka-server:${lowerCaseBuildId}"
-                    def eurekaImageLatest = "${DOCKER_USERNAME}/eureka-server:latest"
-                    sh "docker build -t ${eurekaImageWithBuildId} ./service-discovery"
-                    sh "docker push ${eurekaImageWithBuildId}"
-                    sh "docker tag ${eurekaImageWithBuildId} ${eurekaImageLatest}" // Tagueia com 'latest'
-                    sh "docker push ${eurekaImageLatest}" // Faz push da 'latest'
+                    sh "docker build -t ${imageEureka} ./service-discovery"
+                    sh "docker push ${imageEureka}"
+                    sh "docker tag ${imageEureka} ${DOCKER_USERNAME}/eureka-server:latest"
+                    sh "docker push ${DOCKER_USERNAME}/eureka-server:latest"
 
                     // --- Catálogo de Produtos ---
                     echo "Building and pushing Product Catalog image..."
-                    def catalogImageWithBuildId = "${DOCKER_USERNAME}/product-catalog:${lowerCaseBuildId}"
-                    def catalogImageLatest = "${DOCKER_USERNAME}/product-catalog:latest"
-                    sh "docker build -t ${catalogImageWithBuildId} ./product-catalog"
-                    sh "docker push ${catalogImageWithBuildId}"
-                    sh "docker tag ${catalogImageWithBuildId} ${catalogImageLatest}" // Tagueia com 'latest'
-                    sh "docker push ${catalogImageLatest}" // Faz push da 'latest'
+                    sh "docker build -t ${imageCatalog} ./product-catalog"
+                    sh "docker push ${imageCatalog}"
+                    sh "docker tag ${imageCatalog} ${DOCKER_USERNAME}/product-catalog:latest"
+                    sh "docker push ${DOCKER_USERNAME}/product-catalog:latest"
+
 
                     // --- Order Simulator --- // <-- NOVO
                     echo "Building and pushing Order Simulator image..."
-                    def orderSimulatorImageWithBuildId = "${DOCKER_USERNAME}/order-simulator:${lowerCaseBuildId}"
-                    def orderSimulatorImageLatest = "${DOCKER_USERNAME}/order-simulator:latest"
-                    sh "docker build -t ${orderSimulatorImageWithBuildId} ./order-simulator"
-                    sh "docker push ${orderSimulatorImageWithBuildId}"
-                    sh "docker tag ${orderSimulatorImageWithBuildId} ${orderSimulatorImageLatest}"
-                    sh "docker push ${orderSimulatorImageLatest}"
+                    sh "docker build -t ${imageOrderSim} ./order-simulator"
+                    sh "docker push ${imageOrderSim}"
+                    sh "docker tag ${imageOrderSim} ${DOCKER_USERNAME}/order-simulator:latest"
+                    sh "docker push ${DOCKER_USERNAME}/order-simulator:latest"
                 }
             }
         }
