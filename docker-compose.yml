@@ -32,7 +32,7 @@ services:
       SPRING_DATASOURCE_USERNAME: user
       SPRING_DATASOURCE_PASSWORD: password
       SPRING_APPLICATION_NAME: products-catalog
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      #EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       TZ: America/Sao_Paulo
     depends_on:
       - eureka-server
@@ -47,11 +47,27 @@ services:
       - "8200:8200"
     environment:
       SPRING_APPLICATION_NAME: order-simulator
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      #EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       TZ: America/Sao_Paulo
     depends_on:
       - eureka-server
       - product-catalog
+    networks:
+      - microservices-network
+
+  api-gateway:
+    image: cleosilva/api-gateway:latest
+    build: ./api-gateway
+    ports:
+      - "8700:8700"
+    environment:
+      SPRING_APPLICATION_NAME: api-gateway
+      #EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      TZ: America/Sao_Paulo
+    depends_on:
+      - eureka-server
+      - product-catalog
+      - order-simulator
     networks:
       - microservices-network
 

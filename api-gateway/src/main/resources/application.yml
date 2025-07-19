@@ -1,0 +1,27 @@
+server:
+  port: 8700 #Uma porta dentro da faixa permitida
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      default-filters: #Aplica este filtro a todas as rotas
+        - TokenValidationFilter
+      routes:
+        - id: product-catalog-route
+          uri: lb://PRODUCT-CATALOG
+          predicates:
+            - Path=/products/**
+          # filters: # Se fosse para aplicar só a esta rota
+          #   - TokenValidationFilter
+        - id: order-simulator-route
+          uri: lb://ORDER-SIMULATOR
+          predicates:
+            - Path=/orders/**
+        # Rotas para Swagger, se implementar futuramente
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://eureka-server:8761/eureka/
