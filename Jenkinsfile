@@ -46,38 +46,39 @@ pipeline {
         stage('Docker Build and Push') {
             steps {
                 script {
-                    def lowerCaseBuildId = env.BUILD_ID.toLowerCase()
+                    def buildId = env.BUILD_ID.toLowerCase()
 
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
+                                                      usernameVariable: 'DOCKER_USERNAME',
+                                                      passwordVariable: 'DOCKER_PASSWORD')]) {
+
                         sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin"
+
+                        def imageEureka     = "${DOCKER_USERNAME}/eureka-server:${buildId}"
+                        def imageCatalog    = "${DOCKER_USERNAME}/product-catalog:${buildId}"
+                        def imageOrderSim   = "${DOCKER_USERNAME}/order-simulator:${buildId}"
+
+                        // --- Eureka Server ---
+                        echo "Building and pushing Eureka Server image..."
+                        sh "docker build -t ${imageEureka} ./service-discovery"
+                        sh "docker push ${imageEureka}"
+                        sh "docker tag ${imageEureka} ${DOCKER_USERNAME}/eureka-server:latest"
+                        sh "docker push ${DOCKER_USERNAME}/eureka-server:latest"
+
+                        // --- Product Catalog ---
+                        echo "Building and pushing Product Catalog image..."
+                        sh "docker build -t ${imageCatalog} ./product-catalog"
+                        sh "docker push ${imageCatalog}"
+                        sh "docker tag ${imageCatalog} ${DOCKER_USERNAME}/product-catalog:latest"
+                        sh "docker push ${DOCKER_USERNAME}/product-catalog:latest"
+
+                        // --- Order Simulator ---
+                        echo "Building and pushing Order Simulator image..."
+                        sh "docker build -t ${imageOrderSim} ./order-simulator"
+                        sh "docker push ${imageOrderSim}"
+                        sh "docker tag ${imageOrderSim} ${DOCKER_USERNAME}/order-simulator:latest"
+                        sh "docker push ${DOCKER_USERNAME}/order-simulator:latest"
                     }
-
-                    def imageEureka= "${DOCKER_USERNAME}/eureka-server:${buildId}"
-                    def imageCatalog= "${DOCKER_USERNAME}/product-catalog:${buildId}"
-                    def imageOrderSim= "${DOCKER_USERNAME}/order-simulator:${buildId}"
-
-
-                    // --- Eureka Server ---
-                    echo "Building and pushing Eureka Server image..."
-                    sh "docker build -t ${imageEureka} ./service-discovery"
-                    sh "docker push ${imageEureka}"
-                    sh "docker tag ${imageEureka} ${DOCKER_USERNAME}/eureka-server:latest"
-                    sh "docker push ${DOCKER_USERNAME}/eureka-server:latest"
-
-                    // --- Catálogo de Produtos ---
-                    echo "Building and pushing Product Catalog image..."
-                    sh "docker build -t ${imageCatalog} ./product-catalog"
-                    sh "docker push ${imageCatalog}"
-                    sh "docker tag ${imageCatalog} ${DOCKER_USERNAME}/product-catalog:latest"
-                    sh "docker push ${DOCKER_USERNAME}/product-catalog:latest"
-
-
-                    // --- Order Simulator --- // <-- NOVO
-                    echo "Building and pushing Order Simulator image..."
-                    sh "docker build -t ${imageOrderSim} ./order-simulator"
-                    sh "docker push ${imageOrderSim}"
-                    sh "docker tag ${imageOrderSim} ${DOCKER_USERNAME}/order-simulator:latest"
-                    sh "docker push ${DOCKER_USERNAME}/order-simulator:latest"
                 }
             }
         }
