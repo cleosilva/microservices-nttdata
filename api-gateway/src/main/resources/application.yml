@@ -6,15 +6,13 @@ spring:
     name: api-gateway
   cloud:
     gateway:
-      default-filters: #Aplica este filtro a todas as rotas
-        - TokenValidationFilter
+      #default-filters: #Aplica este filtro a todas as rotas
+        #- TokenValidationFilter
       routes:
         - id: product-catalog-route
           uri: lb://PRODUCT-CATALOG
           predicates:
             - Path=/products/**
-          # filters: # Se fosse para aplicar só a esta rota
-          #   - TokenValidationFilter
         - id: order-simulator-route
           uri: lb://ORDER-SIMULATOR
           predicates:
