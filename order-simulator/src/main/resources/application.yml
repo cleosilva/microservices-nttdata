@@ -5,6 +5,15 @@ spring:
   application:
     name: order-simulator
 
+  rabbitmq:
+    host: rabbitmq
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        auto-startup: true
+
 eureka:
   client:
     serviceUrl:
