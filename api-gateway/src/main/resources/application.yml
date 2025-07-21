@@ -10,7 +10,7 @@ spring:
         #- TokenValidationFilter
       routes:
         - id: product-catalog-route
-          uri: lb://PRODUCTS-CATALOG
+          uri: lb://PRODUCT-CATALOG
           predicates:
             - Path=/products/**
         - id: order-simulator-route
