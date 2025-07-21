@@ -39,7 +39,7 @@ public class GatewayConfig {
         return builder.routes()
                 .route("products-catalog-route", r -> r.path("/products/**")
                         .filters(f -> f.filter(tokenValidationFilter))
-                        .uri("lb://PRODUCT-CATALOG"))
+                        .uri("lb://PRODUCTS-CATALOG"))
                 .route("order-simulator-route", r -> r.path("/orders/**")
                         .filters(f -> f.filter(tokenValidationFilter))
                         .uri("lb://ORDER-SIMULATOR"))
