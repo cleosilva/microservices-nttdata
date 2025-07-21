@@ -10,7 +10,7 @@ spring:
         #- TokenValidationFilter
       routes:
         - id: product-catalog-route
-          uri: lb://PRODUCT-CATALOG
+          uri: lb://PRODUCTS-CATALOG
           predicates:
             - Path=/products/**
         - id: order-simulator-route
@@ -23,3 +23,22 @@ eureka:
   client:
     serviceUrl:
       defaultZone: http://eureka-server:8761/eureka/
+
+authentication:
+  token: supersecrettoken123
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.core.env: DEBUG # ESSENCIAL: Mostra como as propriedades são lidas
+    org.springframework.boot.context.config: DEBUG # ESSENCIAL: Mostra os arquivos de config carregados
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always

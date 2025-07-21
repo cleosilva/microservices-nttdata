@@ -7,7 +7,6 @@ import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
 @EnableDiscoveryClient
-@ComponentScan(basePackages = {"config", "filter"})
 public class ApiGatewayApplication {
 
 	public static void main(String[] args) {
