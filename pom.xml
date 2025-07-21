@@ -19,7 +19,7 @@
         <module>service-discovery</module>
         <module>product-catalog</module>
         <module>order-simulator</module>
-
+        <module>api-gateway</module>
     </modules>
 
     <properties>

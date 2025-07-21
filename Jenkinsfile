@@ -27,6 +27,9 @@ pipeline {
 
                  echo "Building Order Simulator..."
                  sh "cd order-simulator && mvn clean package"
+
+                 echo "Building Api Gateway..."
+                 sh "cd api-gateway && mvn clean package"
              }
         }
 
@@ -40,6 +43,9 @@ pipeline {
 
                   echo "Running unit tests for Order Simulator..."
                   sh 'cd order-simulator && mvn test'
+
+                  echo "Running unit tests for Api Gateway..."
+                  sh 'cd api-gateway && mvn test'
               }
         }
 
@@ -57,6 +63,8 @@ pipeline {
                         def imageEureka     = "${DOCKER_USERNAME}/eureka-server:${buildId}"
                         def imageCatalog    = "${DOCKER_USERNAME}/product-catalog:${buildId}"
                         def imageOrderSim   = "${DOCKER_USERNAME}/order-simulator:${buildId}"
+                        def imageApiGateway   = "${DOCKER_USERNAME}/api-gateway:${buildId}"
+
 
                         // --- Eureka Server ---
                         echo "Building and pushing Eureka Server image..."
@@ -78,6 +86,13 @@ pipeline {
                         sh "docker push ${imageOrderSim}"
                         sh "docker tag ${imageOrderSim} ${DOCKER_USERNAME}/order-simulator:latest"
                         sh "docker push ${DOCKER_USERNAME}/order-simulator:latest"
+
+                        // --- Api Gateway ---
+                        echo "Building and pushing Api Gateway image..."
+                        sh "docker build -t ${imageApiGateway} ./api-gateway"
+                        sh "docker push ${imageApiGateway}"
+                        sh "docker tag ${imageApiGateway} ${DOCKER_USERNAME}/api-gateway:latest"
+                        sh "docker push ${DOCKER_USERNAME}/api-gateway:latest"
                     }
                 }
             }
@@ -96,7 +111,7 @@ pipeline {
                           sh "docker-compose -p ${env.COMPOSE_PROJECT_NAME} down --volumes --remove-orphans || true"
 
                           echo "Deploying Eureka Server, Product Catalog, PostgreSQL, RabbitMQ (if configured) for project ${env.COMPOSE_PROJECT_NAME}..."
-                          sh "BUILD_ID=${lowerCaseBuildId} docker-compose -p ${env.COMPOSE_PROJECT_NAME} up -d --build eureka-server product-catalog order-simulator postgres"
+                          sh "BUILD_ID=${lowerCaseBuildId} docker-compose -p ${env.COMPOSE_PROJECT_NAME} up -d --build eureka-server product-catalog order-simulator api-gateway postgres"
                      }
                  }
              }
