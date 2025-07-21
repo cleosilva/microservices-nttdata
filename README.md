@@ -48,6 +48,7 @@ Para demonstrar uma compreensão mais profunda de um ambiente de desenvolvimento
 
 * **Orquestração com Docker Compose:** Utilização de um docker-compose.yml abrangente para subir toda a arquitetura da aplicação (incluindo PostgreSQL, RabbitMQ e todos os microsserviços) com um único comando, facilitando a execução em qualquer ambiente.
 
+* **Mensageria com RabbitMQ:** Implementação de comunicação assíncrona entre os microsserviços usando RabbitMQ. O `order-simulator` publica eventos de "pedido criado" que são consumidos pelo `product-catalog`, demonstrando a troca de mensagens para desacoplamento e resiliência entre os serviços.
 * **CI/CD com Jenkins:**
 
   * Pipeline Jenkins configurada para automatizar o processo de Build, Teste e Publicação (Push) das imagens Docker para o Docker Hub.
@@ -59,7 +60,7 @@ Para demonstrar uma compreensão mais profunda de um ambiente de desenvolvimento
 ## 🛠️ Próximos Passos (Evolução Futura)
 Este projeto é uma base sólida e continuará evoluindo com a implementação de:
 
-* **Mensageria com RabbitMQ:** Adicionar comunicação assíncrona entre os serviços (por exemplo, para eventos de estoque ou notificações de pedido).
+* **Sistema de Login com Autenticação JWT:** Implementação de um fluxo de autenticação seguro utilizando JSON Web Tokens (JWT) para proteger os endpoints da API, garantindo que apenas usuários autorizados possam acessar os recursos.
 
 * **Monitoramento com Grafana e Prometheus:** Integração de ferramentas de observabilidade para coletar métricas e visualizar o desempenho da aplicação em tempo real.
 
@@ -81,7 +82,7 @@ git clone https://github.com/cleosilva/microservices-nttdata.git
 cd microservices-nttdata
 ```
 ### 2. Iniciar a Aplicação com Docker Compose
-   Este comando puxará as imagens Docker dos microsserviços pré-construídas do Docker Hub (tag `latest`), configurará os serviços de banco de dados e mensageria, e iniciará toda a aplicação.
+Este comando puxará as imagens Docker dos microsserviços pré-construídas do Docker Hub (tag `latest`), configurará os serviços de banco de dados e mensageria, e iniciará toda a aplicação.
 
 No diretório raiz do projeto (`microservices-nttdata`), execute:
 
@@ -99,7 +100,7 @@ docker-compose ps
 Todos os serviços (`eureka-server`, `api-gateway`, `product-catalog`, `order-simulator`, `postgres`, `rabbitmq`) devem aparecer com o status `Up`.
 
 ### 4. Acessar e Testar os Endpoints
-   Agora, você pode interagir com a aplicação. O token fixo para autenticação é: `supersecrettoken123`.
+Agora, você pode interagir com a aplicação. O token fixo para autenticação é: `supersecrettoken123`.
 
 #### 1. **Acessar o Painel do Eureka Server:**
 
@@ -107,7 +108,12 @@ Todos os serviços (`eureka-server`, `api-gateway`, `product-catalog`, `order-si
 
 * Você verá o painel do Eureka com `PRODUCT-CATALOG`, `ORDER-SIMULATOR`, e `API-GATEWAY` listados como `UP`.
 
-#### 2. **Testar o Endpoint de Cadastro de Produto (via API Gateway):**
+#### 2. Acessar o Painel de Gerenciamento do RabbitMQ:
+   Abra seu navegador e vá para: http://localhost:15672/
+
+Use as credenciais padrão: `guest` / `guest`. Você poderá ver as filas, exchanges e a atividade das mensagens.
+
+#### 3. **Testar o Endpoint de Cadastro de Produto (via API Gateway):**
 
 * Endpoint: `POST /products`
 
@@ -151,7 +157,11 @@ curl -X POST \
 http://localhost:8700/orders/simulate
 ````
 * Você receberá um JSON com o pedido simulado, incluindo o item do catálogo.
-
+* **Observação sobre a mensageria:** Após simular um pedido, você pode verificar os logs do container product-catalog para ver a mensagem do evento de pedido sendo consumida. Abra um novo terminal e execute:
+````bash
+docker-compose logs -f product-catalog
+````
+* Você deverá ver a saída "Microsserviço Product Catalog recebeu evento de pedido..." nos logs.
 ### 5. Parar e Remover a Aplicação (Limpeza)
    Para derrubar todos os containers e limpar o ambiente após o teste:
 
