@@ -16,6 +16,16 @@ spring:
       hibernate:
         format_sql: true
 
+  rabbitmq:
+    host: rabbitmq #Nome do serviço RabbitMQ no docker-compose
+    port: 5672
+    username: guest
+    password: guest
+    listener: # Configurações para o consumidor (útil para ambos, mesmo que um seja só produtor no início)
+      simple:
+        auto-startup: true
+        # acknowledge-mode: manual # Opcional: para controle manual do ack da mensagem
+
 eureka:
   client:
     serviceUrl:
