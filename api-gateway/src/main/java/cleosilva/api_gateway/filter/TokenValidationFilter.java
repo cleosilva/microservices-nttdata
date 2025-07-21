@@ -17,24 +17,18 @@ public class TokenValidationFilter implements GatewayFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     @Value("${authentication.token}")
-    private String validToken; // Esta é a linha que você corrigiu
+    private String validToken;
 
-    // INJEÇÃO DO ENVIRONMENT PARA DEBUG - ADICIONE ISTO!
+    // INJEÇÃO DO ENVIRONMENT PARA DEBUG
     private final Environment environment;
 
-    // CONSTRUTOR PARA INJETAR ENVIRONMENT - ADICIONE ISTO!
+    // CONSTRUTOR PARA INJETAR ENVIRONMENT
     public TokenValidationFilter(Environment environment) {
         this.environment = environment;
     }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        // --- LOGS DE DEBUG NO INÍCIO DO FILTRO ---
-        System.out.println("\n--- DEBUG DO FILTRO (Início da Requisição) ---");
-        System.out.println("1. Valor de validToken (via @Value): '" + validToken + "'");
-        System.out.println("2. Valor de authentication.token (via Environment): '" + environment.getProperty("authentication.token") + "'");
-        System.out.println("----------------------------------------\n");
-        // --- FIM DOS LOGS DE DEBUG ---
 
         ServerHttpRequest request = exchange.getRequest();
 
@@ -54,13 +48,10 @@ public class TokenValidationFilter implements GatewayFilter {
         String token = authHeader.substring(BEARER_PREFIX.length());
 
         if (!validToken.equals(token)) {
-            System.out.println("DEBUG: Token recebido na requisição: '" + token + "'");
-            System.out.println("DEBUG: Token esperado (validToken do YAML): '" + validToken + "'");
-            System.out.println("DEBUG: Token inválido. Retornando 403 FORBIDDEN.");
             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
             return exchange.getResponse().setComplete();
         }
-        System.out.println("DEBUG: Token válido. Prosseguindo com a cadeia de filtros.");
+
         return chain.filter(exchange);
     }
 
