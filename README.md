@@ -4,6 +4,9 @@ Este projeto demonstra uma arquitetura de microsserviços moderna, implementada 
 ## 💡 Visão Geral do Projeto
 A aplicação consiste em dois microsserviços principais que interagem através de um **Service Discovery** e uma **API Gateway**, simulando um sistema de gestão de pedidos com um catálogo de produtos.
 
+![UML-catalogo-microsservice (5)](https://github.com/user-attachments/assets/8f07f417-c598-412b-b5ec-fc04bc1274f7)
+
+
 ### Requisitos Obrigatórios do Desafio (Entregues)
 * **Arquitetura de Microsserviços:** Dois serviços independentes desenvolvidos em Spring Boot.
 
